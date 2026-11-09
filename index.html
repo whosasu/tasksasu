@@ -1094,9 +1094,10 @@ function habitLabel(i) {
   return m && m >= 1440 ? i.repeat : 'daily'
 }
 function fmtDue(date) {
-  const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]
-  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()]
-  return `${wd}, ${date.getDate()} ${mo}, ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`
+  const p = osloParts(date.getTime())
+  const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p.mo-1]
+  return `${wd}, ${p.d} ${mo}, ${pad2(p.H)}:${pad2(p.M)}`
 }
 function rollHabit(i) {
   const period = habitPeriodMs(i)
@@ -1240,8 +1241,8 @@ function openComposer() {
   setTimeout(() => $('composer-input').focus(), 250)
 }
 function pad2(n){ return (n < 10 ? '0' : '') + n }
-function nowTimeVal(){ const d = new Date(); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }
-function todayDateVal(){ const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) }
+function nowTimeVal(){ const p = osloParts(Date.now()); return pad2(p.H) + ':' + pad2(p.M) }
+function todayDateVal(){ const p = osloParts(Date.now()); return p.y + '-' + pad2(p.mo) + '-' + pad2(p.d) }
 function dueFromPair(tId, dId){
   const t = $(tId).value.trim(), d = $(dId).value.trim()
   if (!t && !d) return ''
@@ -1251,8 +1252,9 @@ function dueToPair(val, tId, dId){
   const parsed = (typeof parseDue === 'function') ? parseDue(val) : null
   const dt = parsed ? new Date(parsed) : null
   if (dt) {
-    $(tId).value = pad2(dt.getHours()) + ':' + pad2(dt.getMinutes())
-    $(dId).value = dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate())
+    const p = osloParts(dt.getTime())
+    $(tId).value = pad2(p.H) + ':' + pad2(p.M)
+    $(dId).value = p.y + '-' + pad2(p.mo) + '-' + pad2(p.d)
   } else {
     $(tId).value = nowTimeVal()
     $(dId).value = todayDateVal()
@@ -1471,6 +1473,24 @@ function urlB64ToU8(base64String){
 /* parse "tomorrow 09:00", "17:30", "Wed, 11 Nov", "11 Nov", "in 2 hours" … */
 const _MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 const _WDAYS={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+const TN_TZ='Europe/Oslo';
+function osloOffsetMs(ts){
+  const dtf=new Intl.DateTimeFormat('en-US',{timeZone:TN_TZ,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const p={};dtf.formatToParts(new Date(ts)).forEach(x=>{p[x.type]=x.value});
+  const asUTC=Date.UTC(+p.year,+p.month-1,+p.day,(+p.hour)%24,+p.minute,+p.second);
+  return asUTC-Math.floor(ts/1000)*1000;
+}
+function osloToEpoch(naive){
+  const s=(naive||'').trim().replace(' ','T').slice(0,16);
+  const guess=Date.parse(s+':00Z');
+  if(isNaN(guess))return NaN;
+  return guess-osloOffsetMs(guess);
+}
+function osloParts(ts){
+  const dtf=new Intl.DateTimeFormat('en-US',{timeZone:TN_TZ,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const p={};dtf.formatToParts(new Date(ts)).forEach(x=>{p[x.type]=x.value});
+  return {y:+p.year,mo:+p.month,d:+p.day,H:(+p.hour)%24,M:+p.minute};
+}
 function parseDue(text){
   const raw=(text||'').trim();if(!raw)return null;
   const s=' '+raw.toLowerCase().replace(/[.,]/g,' ').replace(/\s+/g,' ')+' ';
@@ -1481,6 +1501,8 @@ function parseDue(text){
     const ms={minute:6e4,hour:36e5,day:864e5,week:6048e5}[rel[2]]*n;
     return new Date(now.getTime()+ms).toISOString();
   }
+  const o=osloParts(now.getTime());
+  const box=(y,mo,d)=>new Date(Date.UTC(y,mo,d));
   let rest=s,base=null,hour=null,min=0,hasDayWord=false;
   let md=rest.match(/\b(\d{1,2}) (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/);
   if(!md)md=rest.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) (\d{1,2})\b/);
@@ -1488,31 +1510,32 @@ function parseDue(text){
     const a=md[1],b=md[2];
     const day=/^\d+$/.test(a)?parseInt(a,10):parseInt(b,10);
     const mon=_MONTHS[/^\d+$/.test(a)?b:a];
-    base=new Date(now.getFullYear(),mon,day);
-    if(base<new Date(now.getFullYear(),now.getMonth(),now.getDate()))base.setFullYear(base.getFullYear()+1);
+    base=box(o.y,mon,day);
+    if(base<box(o.y,o.mo-1,o.d))base.setUTCFullYear(base.getUTCFullYear()+1);
     rest=rest.replace(md[0],' ');hasDayWord=true;
   }
   if(!base){
     const wm=rest.match(/\b(sun|mon|tue|wed|thu|fri|sat)[a-z]*\b/);
     if(wm){
-      base=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-      base.setDate(base.getDate()+((_WDAYS[wm[1]]-base.getDay())+7)%7);
+      base=box(o.y,o.mo-1,o.d);
+      base.setUTCDate(base.getUTCDate()+((_WDAYS[wm[1]]-base.getUTCDay())+7)%7);
       rest=rest.replace(wm[0],' ');hasDayWord=true;
     }
   }
-  if(!base&&/\btomorrow\b/.test(rest)){base=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);rest=rest.replace(/\btomorrow\b/g,' ');hasDayWord=true;}
-  if(!base&&/\btoday\b/.test(rest)){base=new Date(now.getFullYear(),now.getMonth(),now.getDate());rest=rest.replace(/\btoday\b/g,' ');hasDayWord=true;}
+  if(!base&&/\btomorrow\b/.test(rest)){base=box(o.y,o.mo-1,o.d+1);rest=rest.replace(/\btomorrow\b/g,' ');hasDayWord=true;}
+  if(!base&&/\btoday\b/.test(rest)){base=box(o.y,o.mo-1,o.d);rest=rest.replace(/\btoday\b/g,' ');hasDayWord=true;}
   const tm=rest.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
   if(tm){
     hour=parseInt(tm[1],10);min=tm[2]?parseInt(tm[2],10):0;
     if(tm[3]==='pm'&&hour<12)hour+=12;
     if(tm[3]==='am'&&hour===12)hour=0;
   }
-  if(!base){if(hour==null)return null;base=new Date(now.getFullYear(),now.getMonth(),now.getDate());}
+  if(!base){if(hour==null)return null;base=box(o.y,o.mo-1,o.d);}
   if(hour==null)hour=9;
-  base.setHours(hour,min,0,0);
-  if(!hasDayWord&&base<=now)base.setDate(base.getDate()+1);
-  return base.toISOString();
+  base.setUTCHours(hour,min,0,0);
+  const nowBox=new Date(Date.UTC(o.y,o.mo-1,o.d,o.H,o.M));
+  if(!hasDayWord&&base<=nowBox)base.setUTCDate(base.getUTCDate()+1);
+  return new Date(osloToEpoch(base.toISOString().slice(0,16))).toISOString();
 }
 function repeatToMinutes(text){
   if(!text)return null;

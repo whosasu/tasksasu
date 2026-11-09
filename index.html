@@ -1061,7 +1061,7 @@ function renderListView(list, contentId, clearId) {
           ${i.note ? `<p class="note">${esc(i.note)}</p>` : ''}
           ${(i.due || i.repeat || i.habit) ? `
             <div><span class="pill">
-              ${i.due ? CLOCK + ' ' + esc(i.due) : ''}
+              ${i.due ? CLOCK + ' ' + esc(dueText(i)) : ''}
               ${i.habit ? ' 🔄 Habit · ' + esc(habitLabel(i)) : (i.repeat ? (i.due ? REPEAT : REPEAT + ' ' + esc(i.repeat)) : '')}
             </span></div>` : ''}
         </div>
@@ -1112,16 +1112,35 @@ function habitLabel(i) {
 }
 function fmtDue(date) {
   const p = osloParts(date.getTime())
+  const now = osloParts(Date.now())
   const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p.mo-1]
-  return `${wd}, ${p.d} ${mo}, ${pad2(p.H)}:${pad2(p.M)}`
+  const time = pad2(p.H) + ':' + pad2(p.M)
+  const dayDiff = Math.round((Date.UTC(p.y, p.mo - 1, p.d) - Date.UTC(now.y, now.mo - 1, now.d)) / 864e5)
+  if (dayDiff === 0) return 'Today, ' + time
+  if (dayDiff === 1) return 'Tomorrow, ' + time
+  return wd + ' ' + p.d + ' ' + mo + (p.y !== now.y ? ' ' + p.y : '') + ', ' + time
+}
+function dueText(i) {
+  if (!i.due) return ''
+  try {
+    const ep = (typeof parseDue === 'function') ? parseDue(i.due) : null
+    return ep ? fmtDue(new Date(ep)) : i.due
+  } catch (e) { return i.due }
 }
 function rollHabit(i) {
   const period = habitPeriodMs(i)
   const anchor = (i.due && typeof parseDue === 'function') ? parseDue(i.due) : null
-  let t = anchor ? new Date(anchor).getTime() + period : Date.now() + period
+  const anchorT = anchor ? new Date(anchor).getTime() : 0
+  const loggedRecently = i.habitLoggedAt && (Date.now() - new Date(i.habitLoggedAt).getTime()) < period
+  if (loggedRecently && anchorT > Date.now()) {
+    toast('Already logged ✓ next ' + i.due)
+    return
+  }
+  let t = anchorT ? anchorT + period : Date.now() + period
   while (t <= Date.now()) t += period
   i.due = fmtDue(new Date(t))
+  i.habitLoggedAt = new Date().toISOString()
   save()
   state.page === 'home' ? renderHome() : renderList()
   toast('✓ Logged — next ' + i.due)
@@ -1575,7 +1594,11 @@ function parseDue(text){
     const day=/^\d+$/.test(a)?parseInt(a,10):parseInt(b,10);
     const mon=_MONTHS[/^\d+$/.test(a)?b:a];
     base=box(o.y,mon,day);
-    if(base<box(o.y,o.mo-1,o.d))base.setUTCFullYear(base.getUTCFullYear()+1);
+    if(base<box(o.y,o.mo-1,o.d)){
+      const wmHint=rest.match(/\b(sun|mon|tue|wed|thu|fri|sat)[a-z]*\b/);
+      const keepThisYear=wmHint&&base.getUTCDay()===_WDAYS[wmHint[1]];
+      if(!keepThisYear)base.setUTCFullYear(base.getUTCFullYear()+1);
+    }
     rest=rest.replace(md[0],' ');hasDayWord=true;
   }
   if(!base){

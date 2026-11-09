@@ -37,7 +37,7 @@ self.addEventListener('push', (e) => {
   try { d = e.data.json() } catch (_) { d = { title: 'Reminder', body: e.data ? e.data.text() : '' } }
   e.waitUntil(self.registration.showNotification(d.title || 'Reminder', {
     body: d.body || '',
-    tag: d.tag || 'task',
+    tag: d.tag || ('task-' + (d.itemId || 'x')),
     data: { itemId: d.itemId, url: d.url },
   }))
 })

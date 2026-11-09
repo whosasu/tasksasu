@@ -1552,6 +1552,11 @@ function osloParts(ts){
 }
 function parseDue(text){
   const raw=(text||'').trim();if(!raw)return null;
+  if(/^\d{4}-\d{2}-\d{2}/.test(raw)){
+    const hasTz=/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw);
+    const t=hasTz?Date.parse(raw):osloToEpoch(raw.slice(0,16));
+    if(!isNaN(t))return new Date(t).toISOString();
+  }
   const s=' '+raw.toLowerCase().replace(/[.,]/g,' ').replace(/\s+/g,' ')+' ';
   const now=new Date();
   const rel=s.match(/\bin (\d+) (minute|hour|day|week)s?\b/);

@@ -1610,6 +1610,59 @@ function setEmailInput(v){
   save();
 }
 
+/* ═══════════ push self-heal + in-app due fallback ═══════════ */
+async function ensurePushSub(){
+  try{
+    if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+    if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+    const reg=await navigator.serviceWorker.register(SW_PATH);
+    await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    await sbPost('tn_subs?on_conflict=endpoint',{endpoint:sub.endpoint,device_id:DEVICE_ID,p256dh:j.keys.p256dh,auth:j.keys.auth,user_agent:navigator.userAgent});
+    state.settings.pushEnabled=true;
+  }catch(e){}
+}
+const _notifiedKeys={};
+try{Object.assign(_notifiedKeys,JSON.parse(localStorage.getItem('tn_notified')||'{}'))}catch(e){}
+function _markNotified(k){
+  _notifiedKeys[k]=Date.now();
+  try{
+    const ks=Object.keys(_notifiedKeys);
+    if(ks.length>200)ks.slice(0,ks.length-200).forEach(x=>delete _notifiedKeys[x]);
+    localStorage.setItem('tn_notified',JSON.stringify(_notifiedKeys));
+  }catch(e){}
+}
+async function localDueCheck(){
+  try{
+    const nowT=Date.now();
+    for(const i of state.items){
+      if(i.done)continue;
+      let dueT=null;
+      if(i.due&&typeof parseDue==='function'){const p=parseDue(i.due);if(p)dueT=new Date(p).getTime()}
+      const period=typeof repeatToMinutes==='function'?repeatToMinutes(i.repeat):null;
+      if(dueT&&dueT<=nowT){
+        const bucket=period?Math.floor(nowT/period):dueT;
+        const k=i.id+':'+bucket;
+        if(_notifiedKeys[k])continue;
+        _markNotified(k);
+        const l=state.lists.find(x=>x.id===i.listId);
+        toast('🔔 '+i.title);
+        try{
+          const reg=await navigator.serviceWorker.getRegistration();
+          if(reg&&reg.showNotification){
+            await reg.showNotification(i.title,{body:(l?l.emoji+' '+l.name:'')+(period?' · repeats':''),tag:'task-'+i.id,data:{itemId:i.id,url:location.origin+location.pathname+'?item='+i.id}});
+          }
+        }catch(e2){}
+      }else if(period&&!dueT&&!_notifiedKeys[i.id+':'+Math.floor(nowT/period)]){
+        _markNotified(i.id+':'+Math.floor(nowT/period));
+        toast('🔔 '+i.title);
+      }
+    }
+  }catch(e){}
+}
+
 /* ═══════════ boot ═══════════ */
 load()
 document.documentElement.classList.toggle('dark', state.theme === 'dark')
@@ -1623,6 +1676,10 @@ renderList()
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register(SW_PATH).catch(()=>{}) }
 ['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault()},{passive:false})});
 document.addEventListener('dblclick',function(e){e.preventDefault()},{passive:false});
+ensurePushSub();
+localDueCheck();
+setInterval(localDueCheck,30000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)localDueCheck()});
 pullCloud()
 try {
   const qp = new URLSearchParams(location.search)

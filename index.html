@@ -508,6 +508,23 @@
           <input type="time" class="field" id="composer-time" style="flex:1; margin:0">
           <input type="date" class="field" id="composer-date" style="flex:1; margin:0">
         </div>
+        <div style="display:flex; gap:8px; margin-top:12px">
+          <button class="chip" id="composer-habit-chip" onclick="toggleComposerHabit()">🔄 Habit</button>
+          <button class="chip" id="composer-repeat-chip" onclick="toggleComposerRepeat()">🔁 Repeat</button>
+        </div>
+        <div id="composer-repeat-wrap" style="display:none">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px" id="composer-repeat-chips"></div>
+          <div style="gap:8px; margin-top:10px; display:none" id="composer-repeat-custom">
+            <input class="field" id="composer-custom-every-n" inputmode="numeric" placeholder="Every" style="width:84px; flex:none">
+            <select class="field" id="composer-custom-every-unit" style="flex:1">
+              <option value="minute">minutes</option>
+              <option value="hour" selected>hours</option>
+              <option value="day">days</option>
+              <option value="week">weeks</option>
+            </select>
+            <button class="chip on" onclick="applyComposerCustomRepeat()">Set</button>
+          </div>
+        </div>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px" id="composer-targets"></div>
       <button class="btn primary" style="margin-top:16px" onclick="submitComposer()">Add</button>
@@ -1236,6 +1253,12 @@ function openComposer() {
   $('composer-targets').innerHTML = `<span style="font-size:12.5px;color:var(--sub)">Adding to ${l ? l.emoji + ' ' + esc(l.name) : 'this list'}</span>`
   $('composer-input').value = ''
   dueToPair('', 'composer-time', 'composer-date')
+  $('composer-habit-chip').classList.remove('on')
+  $('composer-repeat-chip').classList.remove('on')
+  $('composer-repeat-chip').textContent = '🔁 Repeat'
+  $('composer-repeat-wrap').style.display = 'none'
+  $('composer-repeat-custom').style.display = 'none'
+  buildComposerRepeatChips()
   $('composer-timing-row').style.display = l && l.kind === 'grocery' ? 'none' : ''
   openSheet('composer')
   setTimeout(() => $('composer-input').focus(), 250)
@@ -1259,6 +1282,41 @@ function dueToPair(val, tId, dId){
     $(tId).value = nowTimeVal()
     $(dId).value = todayDateVal()
   }
+}
+function toggleComposerHabit(){
+  $('composer-habit-chip').classList.toggle('on')
+}
+function toggleComposerRepeat(){
+  const w=$('composer-repeat-wrap')
+  const open=w.style.display==='block'
+  w.style.display=open?'none':'block'
+}
+function buildComposerRepeatChips(){
+  $('composer-repeat-chips').innerHTML=PRESETS.map(r=>`<button class="chip ${r===''?'on':''}" onclick="setComposerRepeatChip('${r}')">${r||'No repeat'}</button>`).join('')+`<button class="chip" id="composer-chip-custom" onclick="setComposerRepeatChip('custom')">Custom…</button>`
+  $('composer-repeat-chips').dataset.value=''
+}
+function setComposerRepeatChip(r){
+  if(r==='custom'){
+    const cur=$('composer-repeat-chips').dataset.value||''
+    const m=/^every (\d+) (minute|hour|day|week)s?$/.exec(cur)
+    $('composer-custom-every-n').value=m?m[1]:''
+    $('composer-custom-every-unit').value=m?m[2]:'hour'
+    $('composer-repeat-custom').style.display='flex'
+    document.querySelectorAll('#composer-repeat-chips .chip').forEach(c=>c.classList.remove('on'))
+    $('composer-chip-custom').classList.add('on')
+    return
+  }
+  $('composer-repeat-custom').style.display='none'
+  $('composer-repeat-chips').dataset.value=r
+  document.querySelectorAll('#composer-repeat-chips .chip').forEach((c,idx)=>{c.classList.toggle('on',idx<PRESETS.length?PRESETS[idx]===r:false)})
+  $('composer-repeat-chip').textContent=r?'🔁 '+r:'🔁 Repeat'
+  $('composer-repeat-chip').classList.toggle('on',!!r)
+}
+function applyComposerCustomRepeat(){
+  const n=parseInt($('composer-custom-every-n').value,10)
+  const u=$('composer-custom-every-unit').value
+  if(!n||n<1){toast('Enter a number');return}
+  setComposerRepeatChip('every '+n+' '+u+(n>1?'s':''))
 }
 function pickTarget(id, btn) {
   composerTarget = id
@@ -1305,7 +1363,8 @@ function submitComposer() {
     id:++uid, listId, title,
     note:'', done:false, star:false,
     due: isGroc ? '' : dueFromPair('composer-time', 'composer-date'),
-    repeat: (!isGroc && repM) ? repM[0].toLowerCase() : '',
+    repeat: isGroc ? '' : ($('composer-repeat-chips').dataset.value || (repM ? repM[0].toLowerCase() : '')),
+    habit: !isGroc && $('composer-habit-chip').classList.contains('on'),
     qty: qty, unit: unit, cat,
   }
   state.items.unshift(item)

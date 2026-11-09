@@ -505,10 +505,9 @@
              onkeydown="if(event.key==='Enter')submitComposer()">
       <div id="composer-timing-row">
         <div style="display:flex; gap:8px; margin-top:12px">
-          <button class="chip" id="composer-due-chip" onclick="focusComposerDue()">🕐 <span id="composer-due-label">Set time</span></button>
+          <input type="time" class="field" id="composer-time" style="flex:1; margin:0">
+          <input type="date" class="field" id="composer-date" style="flex:1; margin:0">
         </div>
-        <input class="field" id="composer-due" placeholder="Due" style="margin-top:10px; display:none"
-               oninput="updateComposerDueLabel()">
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px" id="composer-targets"></div>
       <button class="btn primary" style="margin-top:16px" onclick="submitComposer()">Add</button>
@@ -529,11 +528,13 @@
       <textarea class="field" id="item-note" rows="2" placeholder="Notes" style="margin-top:10px"></textarea>
 
       <div style="display:flex; gap:8px; margin-top:12px">
-        <button class="chip" id="item-due-chip" onclick="focusDue()">🕐 <span id="item-due-label">Set time</span></button>
         <button class="chip" id="item-done-chip" onclick="toggleDoneFromSheet()">Mark done</button>
         <button class="chip" id="item-habit-chip" onclick="toggleHabitChip()">🔄 Habit</button>
       </div>
-      <input class="field" id="item-due" placeholder="Due" style="margin-top:10px">
+      <div id="item-due-row" style="display:flex; gap:8px; margin-top:10px">
+        <input type="time" class="field" id="item-time" style="flex:1; margin:0">
+        <input type="date" class="field" id="item-date" style="flex:1; margin:0">
+      </div>
 
       <div id="item-repeat-row">
       <p class="slabel">Repeat</p>
@@ -1056,8 +1057,7 @@ function renderListView(list, contentId, clearId) {
   const doneN = items.filter(i => i.done).length
   $(clearId).innerHTML = `
     <button class="clearbtn${doneN ? '' : ' dim'}" onclick="clearCompleted('${list.id}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 4l-8 8M11 11l-4 4M5 15l4 4M9 19l-4-4M13 7l4 4"/></svg>
-      Delete completed${doneN ? ' · ' + doneN : ''}
+      Delete completed${doneN ? ' ' + doneN : ''}
     </button>`
   save()
 }
@@ -1130,15 +1130,13 @@ function openItem(id) {
   editingId = id
   $('item-title').value = i.title
   $('item-note').value = i.note || ''
-  $('item-due').value = i.due || ''
-  $('item-due-label').textContent = i.due || 'Set time'
+  dueToPair(i.due || '', 'item-time', 'item-date')
   $('item-qty').value = i.qty != null ? i.qty : ''
   $('item-unit').value = i.unit || ''
   const list = state.lists.find(l => l.id === i.listId)
   const isGroc = !!(list && list.kind === 'grocery')
   $('item-qty-row').style.display = isGroc ? 'flex' : 'none'
-  $('item-due-chip').style.display = isGroc ? 'none' : ''
-  $('item-due').style.display = isGroc ? 'none' : ''
+  $('item-due-row').style.display = isGroc ? 'none' : 'flex'
   $('item-repeat-row').style.display = isGroc ? 'none' : 'block'
   $('item-habit-chip').style.display = isGroc ? 'none' : ''
   $('item-habit-chip').classList.toggle('on', !!i.habit)
@@ -1180,7 +1178,6 @@ function applyCustomRepeat() {
   $('chip-custom').classList.add('on')
   toast('Repeat: ' + val)
 }
-function focusDue() { $('item-due').focus() }
 function toggleStarFromSheet() {
   const i = findItem(editingId); if (!i) return
   i.star = !i.star
@@ -1210,7 +1207,7 @@ function saveItemSheet() {
   const i = findItem(editingId); if (!i) return
   i.title = $('item-title').value.trim() || i.title
   i.note = $('item-note').value.trim()
-  i.due = $('item-due').value.trim()
+  i.due = dueFromPair('item-time', 'item-date')
   i.repeat = $('item-repeat-chips').dataset.value || ''
   i.habit = $('item-habit-chip').classList.contains('on')
   const gl = state.lists.find(l => l.id === i.listId)
@@ -1237,20 +1234,29 @@ function openComposer() {
   const l = state.lists.find(x => x.id === composerTarget)
   $('composer-targets').innerHTML = `<span style="font-size:12.5px;color:var(--sub)">Adding to ${l ? l.emoji + ' ' + esc(l.name) : 'this list'}</span>`
   $('composer-input').value = ''
-  $('composer-due').value = ''
-  $('composer-due').style.display = 'none'
-  $('composer-due-label').textContent = 'Set time'
+  dueToPair('', 'composer-time', 'composer-date')
   $('composer-timing-row').style.display = l && l.kind === 'grocery' ? 'none' : ''
   openSheet('composer')
   setTimeout(() => $('composer-input').focus(), 250)
 }
-function focusComposerDue() {
-  const f = $('composer-due')
-  f.style.display = 'block'
-  f.focus()
+function pad2(n){ return (n < 10 ? '0' : '') + n }
+function nowTimeVal(){ const d = new Date(); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }
+function todayDateVal(){ const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) }
+function dueFromPair(tId, dId){
+  const t = $(tId).value.trim(), d = $(dId).value.trim()
+  if (!t && !d) return ''
+  return (d || todayDateVal()) + 'T' + (t || '09:00')
 }
-function updateComposerDueLabel() {
-  $('composer-due-label').textContent = $('composer-due').value.trim() || 'Set time'
+function dueToPair(val, tId, dId){
+  const parsed = (typeof parseDue === 'function') ? parseDue(val) : null
+  const dt = parsed ? new Date(parsed) : null
+  if (dt) {
+    $(tId).value = pad2(dt.getHours()) + ':' + pad2(dt.getMinutes())
+    $(dId).value = dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate())
+  } else {
+    $(tId).value = nowTimeVal()
+    $(dId).value = todayDateVal()
+  }
 }
 function pickTarget(id, btn) {
   composerTarget = id
@@ -1296,14 +1302,12 @@ function submitComposer() {
   const item = {
     id:++uid, listId, title,
     note:'', done:false, star:false,
-    due: isGroc ? '' : $('composer-due').value.trim(),
+    due: isGroc ? '' : dueFromPair('composer-time', 'composer-date'),
     repeat: (!isGroc && repM) ? repM[0].toLowerCase() : '',
     qty: qty, unit: unit, cat,
   }
   state.items.unshift(item)
-  $('composer-due').value = ''
-  $('composer-due').style.display = 'none'
-  $('composer-due-label').textContent = 'Set time'
+  dueToPair('', 'composer-time', 'composer-date')
   const list = state.lists.find(l => l.id === listId)
   closeSheets()
   openList(listId)

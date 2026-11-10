@@ -371,12 +371,13 @@
   .rowact {
     position:absolute; top:0; bottom:0; display:flex; align-items:center;
     font-size:12.5px; font-weight:700; color:#fff; padding:0 18px; letter-spacing:.2px;
-    opacity:0; transition:opacity .12s ease;
+    opacity:0; z-index:1; transition:opacity .12s ease;
   }
-  .rowwrap.swiping .rowact { opacity:1; }
+  .rowwrap.swiping[data-dir="right"] .rowact.left { opacity:1; }
+  .rowwrap.swiping[data-dir="left"] .rowact.right { opacity:1; }
   .rowact.left { left:0; background:#d93025; }
   .rowact.right { right:0; background:#188038; }
-  .rowwrap .row, .rowwrap .g-row { background:var(--bg); position:relative; border-radius:0; }
+  .rowwrap .row, .rowwrap .g-row { background:var(--bg); position:relative; z-index:2; border-radius:0; }
   .rowwrap .row.done, .rowwrap .g-row.done { opacity:1; }
   .rowwrap .row.done .title, .rowwrap .row.done .note, .rowwrap .g-row.done .title { color:var(--muted); }
   .pull-hint {
@@ -398,7 +399,7 @@
   .card:active { transform: scale(.97); }
   .row { transition: background .15s ease, transform .12s ease, opacity .18s ease; }
   .topbar, .bottomnav { background: rgba(255,255,255,.78); -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6); }
-  .rowact { font-size:14px; padding:0 22px; letter-spacing:.3px; }
+  
   @keyframes confetti-fall { 0% { transform: translateY(-12px) rotate(0deg); opacity:1 } 100% { transform: translateY(92vh) rotate(720deg); opacity:.12 } }
   .confetti-bit { position:fixed; top:0; width:9px; height:14px; border-radius:2px; z-index:999; pointer-events:none; animation: confetti-fall 1.5s ease-in forwards; }
   .dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:-2px; border:1px solid rgba(0,0,0,.14); }
@@ -1042,7 +1043,7 @@ function swipePage(dir) {
     }
     if (mode === 'row' && rowEl) {
       moved = true
-      if (rowWrap) rowWrap.classList.add('swiping')
+      if (rowWrap && Math.abs(dx) > 10) { rowWrap.classList.add('swiping'); rowWrap.dataset.dir = dx > 0 ? 'right' : 'left' }
       rowEl.style.transition = 'none'
       rowEl.style.transform = 'translateX(' + Math.max(-140, Math.min(140, dx)) + 'px)'
     } else if (mode === 'pull' && pullBox) {
@@ -1062,7 +1063,7 @@ function swipePage(dir) {
     if (mode === 'row' && rowEl) {
       rowEl.style.transition = ''
       rowEl.style.transform = ''
-      rowWrap.classList.remove('swiping')
+      rowWrap.classList.remove('swiping'); delete rowWrap.dataset.dir
       const id = rowWrap.dataset.id
       if (dx <= -70) toggleDone(id)          // swipe left → mark done
       else if (dx >= 70) swipeRemove(id)     // swipe right → remove
@@ -1080,7 +1081,7 @@ function swipePage(dir) {
   function cancel() {
     if (!active) return
     active = false
-    if (rowEl) { rowEl.style.transition = ''; rowEl.style.transform = ''; if (rowWrap) rowWrap.classList.remove('swiping') }
+    if (rowEl) { rowEl.style.transition = ''; rowEl.style.transform = ''; if (rowWrap) rowWrap.classList.remove('swiping'); delete rowWrap.dataset.dir }
     if (pullBox) { pullBox.style.transition = ''; pullBox.style.transform = '' }
     $('pull-hint').classList.remove('show')
     mode = null
@@ -1961,24 +1962,34 @@ function repeatToMinutes(text){
   const unit=U[m[2]]||U[m[2].replace(/s$/,'')];
   return unit? (m[1]?parseInt(m[1],10):1)*unit : null;
 }
-function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(pushCloud,1200)}
+let syncTimer=null
+function scheduleSync(){try{clearTimeout(syncTimer)}catch(e){}syncTimer=setTimeout(pushCloud,1200)}
+let _syncBusy=false,_syncErrShown=0
 async function pushCloud(){
+  if(_syncBusy)return
+  _syncBusy=true
   try{
-    state.cloudTs=new Date().toISOString();
-    await sbPost('tn_devices?on_conflict=device_id',{device_id:DEVICE_ID,data:state,updated_at:state.cloudTs});
-    const rows=[];
+    state.cloudTs=new Date().toISOString()
+    await sbPost('tn_devices?on_conflict=device_id',{device_id:DEVICE_ID,data:state,updated_at:state.cloudTs})
+    const rows=[]
     for(const i of state.items){
-      const dueAt=parseDue(i.due),rep=repeatToMinutes(i.repeat);
-      if(!dueAt&&!rep)continue;
-      const list=state.lists.find(l=>String(l.id)===String(i.listId));
-      rows.push({id:String(i.id),device_id:DEVICE_ID,title:i.title,list_name:list?list.name:'',due_at:dueAt,repeat_minutes:rep,done:!!i.done,updated_at:state.cloudTs});
+      try{
+        const dueAt=parseDue(i.due),rep=repeatToMinutes(i.repeat)
+        if(!dueAt&&!rep)continue
+        const list=state.lists.find(l=>String(l.id)===String(i.listId))
+        rows.push({id:String(i.id),device_id:DEVICE_ID,title:i.title,list_name:list?list.name:'',due_at:dueAt,repeat_minutes:rep,done:!!i.done,updated_at:state.cloudTs})
+      }catch(e2){}
     }
-    if(rows.length)await sbPost('tn_tasks?on_conflict=id',rows);
-    const remote=await sbGet('tn_tasks?device_id=eq.'+DEVICE_ID+'&select=id');
-    const keep=new Set(rows.map(r=>r.id));
-    const gone=remote.map(r=>String(r.id)).filter(id=>!keep.has(id));
-    if(gone.length)await sbDelete('tn_tasks?device_id=eq.'+DEVICE_ID+'&id=in.('+gone.join(',')+')');
-  }catch(e){/* offline — next change retries */}
+    if(rows.length)await sbPost('tn_tasks?on_conflict=id',rows)
+    const remote=await sbGet('tn_tasks?device_id=eq.'+DEVICE_ID+'&select=id')
+    const keep=new Set(rows.map(r=>r.id))
+    const gone=remote.map(r=>String(r.id)).filter(id=>!keep.has(id))
+    if(gone.length)await sbDelete('tn_tasks?device_id=eq.'+DEVICE_ID+'&id=in.('+gone.map(encodeURIComponent).join(',')+')')
+    state.syncErr=''
+  }catch(e){
+    state.syncErr=String((e&&e.message)||e)
+    if(Date.now()-_syncErrShown>60000){_syncErrShown=Date.now();toast('Sync issue - will keep retrying')}
+  }finally{_syncBusy=false}
 }
 async function pullCloud(){
   try{
@@ -2115,7 +2126,7 @@ document.addEventListener('dblclick',function(e){e.preventDefault()},{passive:fa
 ensurePushSub();
 localDueCheck();
 setInterval(localDueCheck,30000);
-document.addEventListener('visibilitychange',function(){if(!document.hidden)localDueCheck()});
+document.addEventListener('visibilitychange',function(){if(!document.hidden){localDueCheck();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
 pullCloud()
 try {
   const qp = new URLSearchParams(location.search)

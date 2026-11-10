@@ -1069,7 +1069,7 @@ function renderListView(list, contentId, clearId) {
           ${(i.due || i.repeat || i.habit) ? `
             <div><span class="pill">
               ${i.due ? CLOCK + ' ' + esc(dueText(i)) : ''}
-              ${i.habit ? ' 🔄 Habit · ' + esc(habitLabel(i)) : (i.repeat ? (i.due ? REPEAT : REPEAT + ' ' + esc(i.repeat)) : '')}
+              ${i.habit ? ' 🔄 Habit · ' + esc(habitLabel(i)) : (i.repeat ? REPEAT + ' · ' + esc(i.repeat) : '')}
             </span></div>` : ''}
         </div>
         <button class="starbtn ${i.star ? 'on' : ''}" onclick="event.stopPropagation();toggleStar('${i.id}')">

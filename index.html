@@ -542,6 +542,14 @@
     .swatch:hover, .grad:hover { transform:none; }
     .themeopt:hover { border-color:var(--border); }
   }
+
+  /* touch: no sticky hover or tap highlight on tappable rows + circles */
+  @media (hover:none) {
+    .check:hover, .dark .check:hover { border-color:var(--muted); color:transparent; }
+    .row:hover, .dark .row:hover, .g-row:hover, .dark .g-row:hover { background:transparent; }
+    .starbtn:hover, .dark .starbtn:hover { background:transparent; }
+  }
+  .check, .row, .g-row, .starbtn, .chip, .ibtn { -webkit-tap-highlight-color: transparent; }
 </style>
 <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -686,15 +694,14 @@
         <div id="composer-repeat-wrap" style="display:none">
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px" id="composer-repeat-chips"></div>
           <div style="gap:8px; margin-top:10px; display:none" id="composer-repeat-custom">
-            <input class="field" id="composer-custom-every-n" inputmode="numeric" placeholder="Every" style="width:84px; flex:none">
-            <select class="field" id="composer-custom-every-unit" style="flex:1">
+            <input class="field" id="composer-custom-every-n" inputmode="numeric" placeholder="Every" style="width:84px; flex:none" oninput="applyComposerCustomRepeat()">
+            <select class="field" id="composer-custom-every-unit" style="flex:1" onchange="applyComposerCustomRepeat()">
               <option value="minute">minutes</option>
               <option value="hour" selected>hours</option>
               <option value="day">days</option>
               <option value="week">weeks</option>
               <option value="month">months</option>
             </select>
-            <button class="chip on" onclick="applyComposerCustomRepeat()">Set</button>
           </div>
         </div>
       </div>
@@ -729,15 +736,14 @@
       <p class="slabel">Repeat</p>
       <div style="display:flex; flex-wrap:wrap; gap:8px" id="item-repeat-chips"></div>
       <div style="gap:8px; margin-top:10px; display:none" id="item-repeat-custom">
-        <input class="field" id="custom-every-n" inputmode="numeric" placeholder="Every" style="width:84px; flex:none">
-        <select class="field" id="custom-every-unit" style="flex:1">
+        <input class="field" id="custom-every-n" inputmode="numeric" placeholder="Every" style="width:84px; flex:none" oninput="applyCustomRepeat(true)">
+        <select class="field" id="custom-every-unit" style="flex:1" onchange="applyCustomRepeat(true)">
           <option value="minute">minutes</option>
           <option value="hour" selected>hours</option>
           <option value="day">days</option>
           <option value="week">weeks</option>
           <option value="month">months</option>
         </select>
-        <button class="chip on" onclick="applyCustomRepeat()">Set</button>
       </div>
       </div>
 
@@ -809,6 +815,7 @@
         <div class="tx"><p>Push notifications</p></div>
         <button class="toggle on" id="toggle-push" onclick="togglePush(this)"></button>
       </div>
+      <p id="push-status" style="font-size:11.5px;color:var(--sub);margin:2px 4px 0"></p>
       <div class="setting">
         <div class="ic">✉️</div>
         <div class="tx"><p>Email backup</p></div>
@@ -1282,7 +1289,7 @@ function toggleDone(id) {
   if (i.habit && !i.done) return rollHabit(i)
   i.done = !i.done
   if (i.done && i.repeat) toast('Done — repeating reminder stopped')
-  renderList()
+  renderList(); try{ if(document.activeElement&&document.activeElement.blur)document.activeElement.blur() }catch(e){}
 }
 function toggleHabitChip() {
   $('item-habit-chip').classList.toggle('on')
@@ -1495,14 +1502,14 @@ function setRepeatChip(r) {
     c.classList.toggle('on', idx < PRESETS.length && PRESETS[idx] === r)
   })
 }
-function applyCustomRepeat() {
+function applyCustomRepeat(silent) {
   const n = Math.max(1, parseInt($('custom-every-n').value, 10) || 1)
   const unit = $('custom-every-unit').value
   const val = `every ${n} ${unit}${n > 1 ? 's' : ''}`
   $('item-repeat-chips').dataset.value = val
   document.querySelectorAll('#item-repeat-chips .chip').forEach(c => c.classList.remove('on'))
   $('chip-custom').classList.add('on')
-  toast('Repeat: ' + val)
+  if(!silent)toast('Repeat: ' + val)
 }
 function toggleStarFromSheet() {
   const i = findItem(editingId); if (!i) return
@@ -1626,7 +1633,7 @@ function setComposerRepeatChip(r){
 function applyComposerCustomRepeat(){
   const n=parseInt($('composer-custom-every-n').value,10)
   const u=$('composer-custom-every-unit').value
-  if(!n||n<1){toast('Enter a number');return}
+  if(!n||n<1)return
   setComposerRepeatChip('every '+n+' '+u+(n>1?'s':''))
 }
 function pickTarget(id, btn) {
@@ -1644,6 +1651,23 @@ const FOOD = {
   snacks:'chips|chocolate|candy|cookies|crackers|popcorn|sjokolade|godteri|karamell|karameller|kjeks|smågodt|twist|potetgull|skumboller|pastiller|tyggegummi|smash',
   pantry:'rice|pasta|oil|flour|sugar|coffee|tea|beans|cereal|sauce|salsa|salt|tacokrydder|olje|ris|mel|makaroni|spaghetti|eddik|soyasaus|sennep|majones|bønner|linser|kikerter|frokostblanding|havregryn|honning|syltetøy|krydder|buljong|gjær|bakepulver|maizena|nøtter|mandler|peanøtter|rosiner|hermetikk|makrell i tomat|tunfisk|cornflakes|grøt',
   household:'soap|detergent|paper|shampoo|trash|sponge|toothpaste|såpe|vaskemiddel|sjampo|balsam|tannkrem|tannbørste|tørkepapir|tørkeruller|toalettpapir|oppvaskmiddel|zalo|poser|søppelsekker|aluminiumsfolie|plastfolie|klut|skyllemiddel|oppvaskmaskintabletter|rengjøring|bleier|våtservietter|stearinlys',
+}
+function rollPastDue(dueStr){
+  try{
+    if(!dueStr)return dueStr
+    const ep=(typeof parseDue==='function')?parseDue(dueStr):null
+    if(!ep)return dueStr
+    const t=new Date(ep).getTime()
+    if(t>Date.now())return dueStr
+    const p=osloParts(t)
+    for(let k=1;k<370;k++){
+      const box=new Date(Date.UTC(p.y,p.mo-1,p.d+k))
+      const cand=box.getUTCFullYear()+'-'+pad2(box.getUTCMonth()+1)+'-'+pad2(box.getUTCDate())+'T'+pad2(p.H)+':'+pad2(p.M)
+      const t2=new Date(osloToEpoch(cand.slice(0,16))).getTime()
+      if(t2>Date.now()){ toast('Due '+fmtDue(new Date(t2))); return cand }
+    }
+    return dueStr
+  }catch(e){ return dueStr }
 }
 function submitComposer() {
   let raw = $('composer-input').value.trim()
@@ -1710,7 +1734,7 @@ function submitComposer() {
   const item = {
     id:++uid, listId, title,
     note:'', done:false, star: !!smartStar,
-    due: isGroc ? '' : dueFromPair('composer-time', 'composer-date'),
+    due: isGroc ? '' : rollPastDue(dueFromPair('composer-time', 'composer-date')),
     repeat: isGroc ? '' : ($('composer-repeat-chips').dataset.value || (repM ? repM[0].toLowerCase() : '')),
     habit: !isGroc && $('composer-habit-chip').classList.contains('on'),
     qty: qty, unit: unit, cat,
@@ -2048,6 +2072,7 @@ async function togglePush(btn){
     state.settings.pushEnabled=true;
     save();toast('Push notifications on ✓');
   }catch(e){toast('Could not enable push')}
+  refreshPushStatus();
 }
 function toggleEmail(btn){
   btn.classList.toggle('on');
@@ -2063,7 +2088,8 @@ function setEmailInput(v){
 async function ensurePushSub(){
   try{
     if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
-    if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+    if(typeof Notification==='undefined')return;
+    if(Notification.permission!=='granted'){ refreshPushStatus(); return; }
     const reg=await navigator.serviceWorker.register(SW_PATH);
     await navigator.serviceWorker.ready;
     let sub=await reg.pushManager.getSubscription();
@@ -2072,8 +2098,31 @@ async function ensurePushSub(){
     await sbDelete('tn_subs?device_id=eq.'+encodeURIComponent(DEVICE_ID)+'&endpoint=neq.'+encodeURIComponent(sub.endpoint)).catch(()=>{});
     await sbPost('tn_subs?on_conflict=endpoint',{endpoint:sub.endpoint,device_id:DEVICE_ID,p256dh:j.keys.p256dh,auth:j.keys.auth,user_agent:navigator.userAgent});
     state.settings.pushEnabled=true;
+    refreshPushStatus();
   }catch(e){}
 }
+function refreshPushStatus(){
+  try{
+    const el=$('push-status'); if(!el)return;
+    if(typeof Notification==='undefined'){ el.textContent='Notifications are not supported in this browser'; return; }
+    if(Notification.permission==='granted'){ el.textContent='Notifications: on'+(state.settings.pushEnabled?'':' (off)'); return; }
+    if(Notification.permission==='denied'){ el.textContent='Blocked - allow Notifications in iPhone Settings'; return; }
+    el.textContent='Tap the toggle to turn on notifications';
+  }catch(e){}
+}
+function askPushPermission(){
+  try{
+    if(typeof Notification==='undefined')return;
+    if(Notification.permission!=='default')return;
+    Notification.requestPermission().then(function(p){
+      try{
+        if(p==='granted'){ state.settings.pushEnabled=true; save(); ensurePushSub(); toast('Notifications on'); }
+        refreshPushStatus();
+      }catch(e){}
+    });
+  }catch(e){}
+}
+
 const _notifiedKeys={};
 try{Object.assign(_notifiedKeys,JSON.parse(localStorage.getItem('tn_notified')||'{}'))}catch(e){}
 function _markNotified(k){
@@ -2124,9 +2173,11 @@ if ('serviceWorker' in navigator) { navigator.serviceWorker.register(SW_PATH).ca
 ['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault()},{passive:false})});
 document.addEventListener('dblclick',function(e){e.preventDefault()},{passive:false});
 ensurePushSub();
+refreshPushStatus();
+document.addEventListener('touchend', askPushPermission, { once:true });
 localDueCheck();
 setInterval(localDueCheck,30000);
-document.addEventListener('visibilitychange',function(){if(!document.hidden){localDueCheck();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
+document.addEventListener('visibilitychange',function(){if(!document.hidden){localDueCheck();refreshPushStatus();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
 pullCloud()
 try {
   const qp = new URLSearchParams(location.search)

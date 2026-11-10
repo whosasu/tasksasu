@@ -389,6 +389,25 @@
   select.field { appearance:none; -webkit-appearance:none; }
 
   .empty { text-align:center; color:var(--muted); padding:52px 20px; font-size:14px; line-height:1.7; }
+
+  /* ══ TEST round: design styles · glass · motion ══ */
+  .theme-glass { --bg:#eef1fb; --surface:rgba(255,255,255,.72); --surface2:#e8ecfa; --border:#dfe4f5; --text:#1c2033; --sub:#565e7a; --muted:#8b93b0; --accent:#6c5ce7; --accent-soft:#ece9ff; --done:#6c5ce7; }
+  .theme-sunset { --bg:#fff7ed; --surface:#fffdf8; --surface2:#ffedd5; --border:#fde4c1; --text:#3b2412; --sub:#8a5a33; --muted:#b08256; --accent:#ea580c; --accent-soft:#ffe9d6; --done:#ea580c; }
+  .theme-forest { --bg:#f1f7f2; --surface:#ffffff; --surface2:#e4f0e6; --border:#cfe5d3; --text:#17281c; --sub:#4d6b55; --muted:#7fa189; --accent:#15803d; --accent-soft:#dcf2e2; --done:#15803d; }
+  .theme-mono { --bg:#ffffff; --surface:#ffffff; --surface2:#f2f2f2; --border:#bdbdbd; --text:#000000; --sub:#333333; --muted:#666666; --accent:#000000; --accent-soft:#ededed; --done:#000000; }
+  .theme-glass body, body.theme-glass { background: linear-gradient(160deg,#eef1fb 0%,#e7ecfb 45%,#f2ecfb 100%); background-attachment: fixed; }
+  .topbar, .pages { background: rgba(255,255,255,.78); -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6); }
+  .dark .topbar, .dark .pages { background: rgba(31,31,31,.72); }
+  .theme-glass .topbar, .theme-glass .pages { background: rgba(238,241,251,.62); }
+  .theme-mono .topbar, .theme-mono .pages { background: rgba(255,255,255,.92); }
+  .card { transition: transform .16s cubic-bezier(.2,.8,.3,1.15), box-shadow .16s ease; }
+  .card:active { transform: scale(.97); }
+  .row { transition: background .15s ease, transform .12s ease, opacity .18s ease; }
+  .rowact { font-size:14px; padding:0 22px; letter-spacing:.3px; }
+  @keyframes confetti-fall { 0% { transform: translateY(-12px) rotate(0deg); opacity:1 } 100% { transform: translateY(92vh) rotate(720deg); opacity:.12 } }
+  .confetti-bit { position:fixed; top:0; width:9px; height:14px; border-radius:2px; z-index:999; pointer-events:none; animation: confetti-fall 1.5s ease-in forwards; }
+  .dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:-2px; border:1px solid rgba(0,0,0,.14); }
+  #toast .taction { margin-left:14px; background:transparent; border:0; color:var(--accent); font-weight:800; letter-spacing:.5px; font-size:12.5px; cursor:pointer; padding:4px 6px; }
 </style>
 <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -428,6 +447,7 @@
       <div class="menu" id="menu">
         <button onclick="closeMenu();openRename()">Rename list</button>
         <button onclick="closeMenu();openStyleForCurrent()">Change background</button>
+        <button onclick="closeMenu();toggleDueSort()">Sort by due date</button>
         <button onclick="closeMenu();clearCompleted()">Remove completed</button>
         <button class="danger" onclick="closeMenu();deleteCurrentList()">Delete list</button>
       </div>
@@ -500,6 +520,16 @@
 
   <!-- ══════════ BACKDROP + SHEETS ══════════ -->
   <div class="backdrop" id="backdrop" onclick="closeSheets()"></div>
+
+  <!-- recently deleted -->
+  <div class="sheet" id="sheet-trash">
+    <div class="grabber"></div>
+    <div class="sheet-head"><h2>Recently deleted</h2>
+      <button class="ibtn" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="content" id="trash-list" style="padding-bottom:20px"></div>
+    <div style="padding:0 18px 30px"><button class="chip" onclick="emptyTrash()">Empty trash</button></div>
+  </div>
 
   <!-- composer -->
   <div class="sheet" id="sheet-composer">
@@ -626,16 +656,21 @@
       <h1>⚙️ Settings</h1>
     </div>
     <div class="rows" style="padding:10px 18px 40px">
-      <p class="slabel">Appearance</p>
+      <p class="slabel">Design style (TEST)</p>
       <div class="themepick">
-        <button class="themeopt" id="theme-light" onclick="setTheme('light')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M19.1 4.9L17.7 6.3M6.3 17.7l-1.4 1.4"/></svg>
-          Light
-        </button>
-        <button class="themeopt" id="theme-dark" onclick="setTheme('dark')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
-          Dark
-        </button>
+        <button class="themeopt" id="theme-light" onclick="setTheme('light')"><span class="dot" style="background:#1a73e8"></span>Keep</button>
+        <button class="themeopt" id="theme-dark" onclick="setTheme('dark')"><span class="dot" style="background:#8ab4f8"></span>Dark</button>
+        <button class="themeopt" id="theme-glass" onclick="setTheme('glass')"><span class="dot" style="background:#6c5ce7"></span>Glass</button>
+        <button class="themeopt" id="theme-sunset" onclick="setTheme('sunset')"><span class="dot" style="background:#ea580c"></span>Sunset</button>
+        <button class="themeopt" id="theme-forest" onclick="setTheme('forest')"><span class="dot" style="background:#15803d"></span>Forest</button>
+        <button class="themeopt" id="theme-mono" onclick="setTheme('mono')"><span class="dot" style="background:#222"></span>Mono</button>
+      </div>
+
+      <p class="slabel">Data</p>
+      <div class="setting" onclick="openTrash()">
+        <div class="ic">🗑</div>
+        <div class="tx"><p>Recently deleted</p></div>
+        <span style="color:var(--muted)">›</span>
       </div>
 
       <p class="slabel">Notifications</p>
@@ -761,9 +796,12 @@ const REPEAT = '<svg width="12.5" height="12.5" viewBox="0 0 24 24" fill="none" 
 const PALETTE = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 22a10 10 0 1110-10c0 2.2-1.8 3.5-3.5 3.5H16a2 2 0 00-2 2c0 1.2-.9 2-2 2h-1.5A11 11 0 0112 22zM7.5 12.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4zM12 7.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4zM16.5 10a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z"/></svg>'
 
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;') }
-function toast(msg) {
-  const el = $('toast'); el.textContent = msg; el.classList.add('show')
-  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200)
+function toast(msg, actLabel, actFn) {
+  const el = $('toast')
+  el.innerHTML = esc(msg) + (actLabel ? ' <button class="taction" id="toast-act">' + esc(actLabel) + '</button>' : '')
+  el.classList.add('show')
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), actLabel ? 5200 : 2200)
+  if (actLabel && actFn) $('toast-act').onclick = () => { el.classList.remove('show'); actFn() }
 }
 
 /* contrast-aware text for colored cards */
@@ -779,12 +817,14 @@ function needsLightText(css) {
 /* ═══════════ theme ═══════════ */
 function setTheme(mode) {
   state.theme = mode
-  document.documentElement.classList.toggle('dark', mode === 'dark')
-  $('theme-light').classList.toggle('on', mode === 'light')
-  $('theme-dark').classList.toggle('on', mode === 'dark')
+  applyThemeClasses()
+  document.querySelectorAll('.themeopt').forEach(b => b.classList.remove('on'))
+  const btn = $('theme-' + mode)
+  if (btn) btn.classList.add('on')
   save()
-  renderHome()
-  toast(mode === 'dark' ? 'Dark theme' : 'Light theme')
+  try { renderHome() } catch (e) {}
+  const names = { light: 'Keep style', dark: 'Dark style', glass: 'Glass style', sunset: 'Sunset style', forest: 'Forest style', mono: 'Mono style' }
+  toast(names[mode] || 'Style set')
 }
 
 /* ═══════════ navigation ═══════════ */
@@ -1012,22 +1052,27 @@ function renderList() {
   if (t) renderListView(t, 'todo-content', 'todo-clear')
   const g = state.lists.find(l => l.kind === 'grocery')
   if (g) renderListView(g, 'grocery-content', 'grocery-clear')
+  syncBadge(); applyThemeClasses()
 }
 function swipeRemove(id) {
   const i = findItem(id); if (!i) return
+  const removed = state.items.filter(x => String(x.id) === String(id))
+  removed.forEach(toTrash)
   state.items = state.items.filter(x => String(x.id) !== String(id))
   renderList()
-  toast('Removed')
+  undoRemove(removed)
 }
 function renderListView(list, contentId, clearId) {
   const filter = (state.filters && state.filters[list.id]) || 'all'
   const items = state.items.filter(i => i.listId === list.id)
   const shown = items.filter(i => filter === 'all' ? true : filter === 'open' ? !i.done : i.done)
-  shown.sort((a,b) => (a.done?1:0)-(b.done?1:0) || (b.star?1:0)-(a.star?1:0) || (list.glow ? STATUS_RANK[statusOf(a)] - STATUS_RANK[statusOf(b)] : 0))
+  const dueKey = (i) => { const ep = (typeof parseDue === 'function' && i.due) ? parseDue(i.due) : null; return ep ? new Date(ep).getTime() : Infinity }
+  const dsort = state.dueSort && state.dueSort[list.id]
+  shown.sort((a,b) => (a.done?1:0)-(b.done?1:0) || (b.star?1:0)-(a.star?1:0) || (dsort ? dueKey(a)-dueKey(b) : 0) || (list.glow ? STATUS_RANK[statusOf(a)] - STATUS_RANK[statusOf(b)] : 0))
 
   const wrap = (i, inner) => `
       <div class="rowwrap" data-id="${i.id}">
-        <div class="rowact left">Remove</div>
+        <div class="rowact left">Remove 🗑</div>
         <div class="rowact right">Done ✓</div>
         ${inner}
       </div>`
@@ -1162,10 +1207,78 @@ function toggleStar(id) {
 function clearCompleted(listId) {
   const id = listId || state.page
   const before = state.items.length
+  const removed = state.items.filter(i => i.listId === id && i.done)
+  removed.forEach(toTrash)
   state.items = state.items.filter(i => !(i.listId === id && i.done))
   renderList()
   const n = before - state.items.length
-  toast(n ? `Removed ${n} completed` : 'No completed items')
+  if (n) { undoRemove(removed, `Removed ${n} completed`); confetti() } else toast('No completed items')
+}
+
+/* ══ TEST round: trash/undo · badge · confetti · styles · due sort ══ */
+function toTrash(i){ (state.trash = state.trash || []).push(Object.assign({}, i, { deletedAt: Date.now() })); while (state.trash.length > 60) state.trash.shift() }
+function undoRemove(removed, msg) {
+  toast(msg || 'Removed', 'UNDO', () => { removed.forEach(r => state.items.push(r)); renderList(); save(); toast('Restored ✓') })
+}
+function confetti(){
+  try{
+    const colors=['#1a73e8','#34a853','#fbbc04','#ea4335','#a142f4','#ff6d00']
+    for(let n=0;n<26;n++){
+      const b=document.createElement('div')
+      b.className='confetti-bit'
+      b.style.left=(Math.random()*100)+'vw'
+      b.style.background=colors[n%colors.length]
+      b.style.animationDelay=(Math.random()*.35)+'s'
+      document.body.appendChild(b)
+      setTimeout(()=>b.remove(),2100)
+    }
+  }catch(e){}
+}
+function syncBadge(){
+  try{
+    const n=state.items.filter(i=>!i.done).length
+    if(navigator.setAppBadge){ n ? navigator.setAppBadge(n) : (navigator.clearAppBadge ? navigator.clearAppBadge() : navigator.setAppBadge(0)) }
+  }catch(e){}
+}
+function applyThemeClasses(){
+  try{
+    const html=document.documentElement
+    html.classList.toggle('dark', state.theme==='dark')
+    ;['glass','sunset','forest','mono'].forEach(m=>html.classList.toggle('theme-'+m, state.theme===m))
+  }catch(e){}
+}
+function toggleDueSort(){
+  const id=currentListId()||state.page
+  state.dueSort=state.dueSort||{}
+  state.dueSort[id]=!state.dueSort[id]
+  renderList()
+  toast(state.dueSort[id]?'Sorted by due date ✓':'Original order ✓')
+}
+function openTrash(){
+  const list=(state.trash||[]).slice().reverse()
+  $('trash-list').innerHTML = list.length ? list.map(t=>`
+    <div class="setting" style="border-bottom:1px solid var(--border)">
+      <div class="tx"><p>${esc(t.title)}</p></div>
+      <button class="chip" onclick="restoreTrash('${t.id}')">Restore</button>
+      <button class="chip" onclick="purgeTrash('${t.id}')">Delete</button>
+    </div>`).join('') : '<div class="empty">Trash is empty</div>'
+  openSheet('trash')
+}
+function restoreTrash(id){
+  const t=(state.trash||[]).find(x=>String(x.id)===String(id))
+  if(!t)return
+  state.trash=state.trash.filter(x=>String(x.id)!==String(id))
+  const copy=Object.assign({},t); delete copy.deletedAt
+  state.items.unshift(copy)
+  renderList(); save(); openTrash(); toast('Restored ✓')
+}
+function purgeTrash(id){
+  state.trash=(state.trash||[]).filter(x=>String(x.id)!==String(id))
+  openTrash(); save()
+}
+function emptyTrash(){
+  state.trash=[]
+  openTrash(); save(); toast('Trash emptied')
 }
 
 /* item editor sheet */
@@ -1266,10 +1379,13 @@ function saveItemSheet() {
   toast('Saved ✓')
 }
 function deleteFromSheet() {
+  const i = findItem(editingId)
+  if (i) toTrash(i)
+  const removed = i ? [i] : []
   state.items = state.items.filter(x => String(x.id) !== String(editingId))
   closeSheets()
   renderList()
-  toast('Item deleted')
+  undoRemove(removed, 'Item deleted')
 }
 
 /* ═══════════ composer (smart add) ═══════════ */
@@ -1278,7 +1394,7 @@ function openComposer() {
   composerTarget = currentListId()
   if (!composerTarget) return
   const l = state.lists.find(x => x.id === composerTarget)
-  $('composer-targets').innerHTML = `<span style="font-size:12.5px;color:var(--sub)">Adding to ${l ? l.emoji + ' ' + esc(l.name) : 'this list'}</span>`
+  $('composer-targets').innerHTML = ''
   $('composer-input').value = ''
   dueToPair('', 'composer-time', 'composer-date')
   $('composer-habit-chip').classList.remove('on')
@@ -1363,11 +1479,45 @@ const FOOD = {
   household:'soap|detergent|paper|shampoo|trash|sponge|toothpaste|såpe|vaskemiddel|sjampo|balsam|tannkrem|tannbørste|tørkepapir|tørkeruller|toalettpapir|oppvaskmiddel|zalo|poser|søppelsekker|aluminiumsfolie|plastfolie|klut|skyllemiddel|oppvaskmaskintabletter|rengjøring|bleier|våtservietter|stearinlys',
 }
 function submitComposer() {
-  const raw = $('composer-input').value.trim()
+  let raw = $('composer-input').value.trim()
   if (!raw) return
   $('composer-input').value = ''
 
   let listId = composerTarget, cat = null, qty = null, unit = ''
+  let smartStar = false
+  {
+    const tagM = raw.match(/#([a-z0-9æøå-]+)/i)
+    if (tagM) {
+      const key = tagM[1].toLowerCase()
+      const hit = state.lists.find(l => l.kind === key || String(l.id) === key || l.name.toLowerCase().split(/\s+/)[0] === key)
+      if (hit) listId = hit.id
+      raw = raw.replace(tagM[0], ' ')
+    }
+    const gl = state.lists.find(l => l.id === listId)
+    if (!(gl && gl.kind === 'grocery')) {
+      if (/[*⭐]/.test(raw)) { smartStar = true; raw = raw.replace(/[*⭐]/g, ' ') }
+      const tmM = raw.match(/\b(?:at |kl\.?\s*)?(\d{1,2}):(\d{2})\b/i)
+      const dayM = raw.match(/\b(today|tomorrow|i dag|idag|i morgen|imorgen|i morgon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag|måndag|tysdag|laurdag|sundag)\b/i)
+      let dayOk = true
+      if (dayM && dayM.index >= 6) {
+        const before = raw.slice(Math.max(0, dayM.index - 8), dayM.index).toLowerCase()
+        if (/(every|hver|kvar)\s+$/.test(before)) dayOk = false
+      }
+      const dayTxt = (dayM && dayOk) ? dayM[0] : ''
+      const timeTxt = tmM ? tmM[1] + ':' + tmM[2] : ''
+      if (dayTxt || timeTxt) {
+        const ep = (typeof parseDue === 'function') ? parseDue((dayTxt + ' ' + timeTxt).trim()) : null
+        if (ep) {
+          const pp = osloParts(new Date(ep).getTime())
+          $('composer-time').value = pad2(pp.H) + ':' + pad2(pp.M)
+          $('composer-date').value = pp.y + '-' + pad2(pp.mo) + '-' + pad2(pp.d)
+        }
+        if (dayM && dayOk) raw = raw.replace(dayM[0], ' ')
+        if (tmM) raw = raw.replace(tmM[0], ' ')
+      }
+    }
+    raw = raw.replace(/\s+/g, ' ').trim()
+  }
   const qm = raw.match(/(\d+[.,]?\d*)\s*(kg|g|l|dl|ml|stk|pk|x)?\b/i)
   const lower = raw.toLowerCase()
 
@@ -1392,7 +1542,7 @@ function submitComposer() {
   const isGroc = !!(targetList && targetList.kind === 'grocery')
   const item = {
     id:++uid, listId, title,
-    note:'', done:false, star:false,
+    note:'', done:false, star: !!smartStar,
     due: isGroc ? '' : dueFromPair('composer-time', 'composer-date'),
     repeat: isGroc ? '' : ($('composer-repeat-chips').dataset.value || (repM ? repM[0].toLowerCase() : '')),
     habit: !isGroc && $('composer-habit-chip').classList.contains('on'),

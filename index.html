@@ -89,10 +89,10 @@
   }
 
   /* ══ Keep-style cards ══ */
-  .cardgrid { columns:2; column-gap:12px; padding:0 2px; }
-  @media (min-width:400px) { .cardgrid { columns:2; } }
+  .cardgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 2px; align-items:start; }
+  @media (min-width:400px) { .cardgrid { grid-template-columns:1fr 1fr; } }
   .card {
-    break-inside:avoid; margin-bottom:12px; width:100%; text-align:left;
+    margin-bottom:0; width:100%; text-align:left;
     border-radius:12px; box-shadow:var(--shadow); position:relative;
     transition:transform .12s ease, box-shadow .12s ease;
     overflow:hidden;
@@ -789,15 +789,10 @@
       <h1>⚙️ Settings</h1>
     </div>
     <div class="rows" style="padding:10px 18px 40px">
-      <p class="slabel">Design style (TEST)</p>
+      <p class="slabel">Design</p>
       <div class="themepick">
         <button class="themeopt" id="theme-light" onclick="setTheme('light')"><span class="dot" style="background:#1a73e8"></span>Keep</button>
         <button class="themeopt" id="theme-dark" onclick="setTheme('dark')"><span class="dot" style="background:#5b9dff"></span>Dark</button>
-        <button class="themeopt" id="theme-glass" onclick="setTheme('glass')"><span class="dot" style="background:#6c5ce7"></span>Aurora</button>
-        <button class="themeopt" id="theme-sharp" onclick="setTheme('sharp')"><span class="dot" style="background:#111"></span>Brutal</button>
-        <button class="themeopt" id="theme-playful" onclick="setTheme('playful')"><span class="dot" style="background:#ff6b35"></span>Candy</button>
-        <button class="themeopt" id="theme-editorial" onclick="setTheme('editorial')"><span class="dot" style="background:#7a1f2b"></span>Editorial</button>
-        <button class="themeopt" id="theme-compact" onclick="setTheme('compact')"><span class="dot" style="background:#0b57d0"></span>Pro</button>
       </div>
 
       <p class="slabel">Data</p>
@@ -941,11 +936,14 @@ function toast(msg, actLabel, actFn) {
 /* contrast-aware text for colored cards */
 function needsLightText(css) {
   if (!css) return false
-  if (css.startsWith('linear-gradient') || css.startsWith('data:')) return true
-  const m = css.replace('#','')
-  if (m.length !== 6) return false
-  const r=parseInt(m.slice(0,2),16), g=parseInt(m.slice(2,4),16), b=parseInt(m.slice(4,6),16)
-  return (0.299*r + 0.587*g + 0.114*b)/255 < 0.62
+  if (css.startsWith('data:')) return true
+  const m = (css.match(/#[0-9a-fA-F]{6}/g) || []).map(h => h.slice(1))
+  if (m.length) {
+    let s = 0
+    for (const x of m) s += (0.299*parseInt(x.slice(0,2),16) + 0.587*parseInt(x.slice(2,4),16) + 0.114*parseInt(x.slice(4,6),16)) / 255
+    return s / m.length < 0.62
+  }
+  return css.startsWith('linear-gradient')
 }
 
 /* ═══════════ theme ═══════════ */
@@ -1438,6 +1436,12 @@ function bindSheetGestures(){
         sh.style.transition = ''
         sh.style.transform = ''
         if (dy > 80) closeSheets()
+      })
+      sh.addEventListener('touchcancel', ()=>{
+        if (!dragging) return
+        dragging = false
+        sh.style.transition = ''
+        sh.style.transform = ''
       })
     })
   }catch(e){}

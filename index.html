@@ -528,6 +528,7 @@
               <option value="hour" selected>hours</option>
               <option value="day">days</option>
               <option value="week">weeks</option>
+              <option value="month">months</option>
             </select>
             <button class="chip on" onclick="applyComposerCustomRepeat()">Set</button>
           </div>
@@ -570,6 +571,7 @@
           <option value="hour" selected>hours</option>
           <option value="day">days</option>
           <option value="week">weeks</option>
+          <option value="month">months</option>
         </select>
         <button class="chip on" onclick="applyCustomRepeat()">Set</button>
       </div>
@@ -1168,7 +1170,7 @@ function clearCompleted(listId) {
 
 /* item editor sheet */
 let editingId = null
-const PRESETS = ['', 'every hour', 'every 2 hours', 'every 3 hours', 'every 6 hours', 'every 12 hours', 'every day', 'every 2 days', 'every week']
+const PRESETS = ['', 'every minute', 'every hour', 'every day', 'every week', 'every month']
 function openItem(id) {
   const i = findItem(id); if (!i) return
   editingId = id
@@ -1199,7 +1201,7 @@ function openItem(id) {
 function setRepeatChip(r) {
   if (r === 'custom') {
     const cur = $('item-repeat-chips').dataset.value || ''
-    const m = /^every (\d+) (minute|hour|day|week)s?$/.exec(cur)
+    const m = /^every (\d+) (minute|hour|day|week|month)s?$/.exec(cur)
     $('custom-every-n').value = m ? m[1] : ''
     $('custom-every-unit').value = m ? m[2] : 'hour'
     $('item-repeat-custom').style.display = 'flex'
@@ -1324,7 +1326,7 @@ function buildComposerRepeatChips(){
 function setComposerRepeatChip(r){
   if(r==='custom'){
     const cur=$('composer-repeat-chips').dataset.value||''
-    const m=/^every (\d+) (minute|hour|day|week)s?$/.exec(cur)
+    const m=/^every (\d+) (minute|hour|day|week|month)s?$/.exec(cur)
     $('composer-custom-every-n').value=m?m[1]:''
     $('composer-custom-every-unit').value=m?m[2]:'hour'
     $('composer-repeat-custom').style.display='flex'
@@ -1590,7 +1592,7 @@ function parseDue(text){
   const now=new Date();
   const rel=s.match(/\b(?:in|om|i)\s+(\d+)\s+([a-zæøå]+)/);
   if(rel){
-    const U={minute:6e4,minutes:6e4,minutt:6e4,minutter:6e4,min:6e4,hour:36e5,hours:36e5,time:36e5,timer:36e5,timar:36e5,day:864e5,days:864e5,dag:864e5,dager:864e5,dagar:864e5,week:6048e5,weeks:6048e5,uke:6048e5,uker:6048e5,veke:6048e5,veker:6048e5};
+    const U={minute:6e4,minutes:6e4,minutt:6e4,minutter:6e4,min:6e4,hour:36e5,hours:36e5,time:36e5,timer:36e5,timar:36e5,day:864e5,days:864e5,dag:864e5,dager:864e5,dagar:864e5,week:6048e5,weeks:6048e5,uke:6048e5,uker:6048e5,veke:6048e5,veker:6048e5,month:2592e6,months:2592e6,måned:2592e6,måneder:2592e6,månad:2592e6,månader:2592e6};
     const ms=(U[rel[2]]||U[rel[2].replace(/s$/,'')])*(parseInt(rel[1],10)||1);
     if(ms)return new Date(now.getTime()+ms).toISOString();
   }
@@ -1638,7 +1640,7 @@ function repeatToMinutes(text){
   if(!text)return null;
   const m=String(text).toLowerCase().match(/(?:every|hver|kvar)\s*(\d*)\s*([a-zæøå]+)/);
   if(!m)return null;
-  const U={minute:1,minutes:1,minutt:1,minutter:1,min:1,hour:60,hours:60,time:60,timer:60,timar:60,day:1440,days:1440,dag:1440,dager:1440,dagar:1440,week:10080,weeks:10080,uke:10080,uker:10080,veke:10080,veker:10080};
+  const U={minute:1,minutes:1,minutt:1,minutter:1,min:1,hour:60,hours:60,time:60,timer:60,timar:60,day:1440,days:1440,dag:1440,dager:1440,dagar:1440,week:10080,weeks:10080,uke:10080,uker:10080,veke:10080,veker:10080,month:43200,months:43200,måned:43200,måneder:43200,månad:43200,månader:43200};
   const unit=U[m[2]]||U[m[2].replace(/s$/,'')];
   return unit? (m[1]?parseInt(m[1],10):1)*unit : null;
 }

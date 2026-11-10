@@ -390,16 +390,66 @@
 
   .empty { text-align:center; color:var(--muted); padding:52px 20px; font-size:14px; line-height:1.7; }
 
-  /* ══ TEST round: design styles · glass · motion ══ */
+  /* ══ TEST round: UI design styles · glass · motion ══ */
+  button, .chip, .ibtn, .seg, .navbtn, .themeopt, .toggle, .swatch, .grad, .menu button { touch-action: manipulation; }
+
+  /* — keep: classic (default) — */
+
+  /* — dark: sleek — */
+  .dark .card { border-radius:14px; }
+  .dark .rowwrap { border-radius:14px; }
+
+  /* — glass: translucent, floating, soft violet — */
   .theme-glass { --bg:#eef1fb; --surface:rgba(255,255,255,.72); --surface2:#e8ecfa; --border:#dfe4f5; --text:#1c2033; --sub:#565e7a; --muted:#8b93b0; --accent:#6c5ce7; --accent-soft:#ece9ff; --done:#6c5ce7; }
-  .theme-sunset { --bg:#fff7ed; --surface:#fffdf8; --surface2:#ffedd5; --border:#fde4c1; --text:#3b2412; --sub:#8a5a33; --muted:#b08256; --accent:#ea580c; --accent-soft:#ffe9d6; --done:#ea580c; }
-  .theme-forest { --bg:#f1f7f2; --surface:#ffffff; --surface2:#e4f0e6; --border:#cfe5d3; --text:#17281c; --sub:#4d6b55; --muted:#7fa189; --accent:#15803d; --accent-soft:#dcf2e2; --done:#15803d; }
-  .theme-mono { --bg:#ffffff; --surface:#ffffff; --surface2:#f2f2f2; --border:#bdbdbd; --text:#000000; --sub:#333333; --muted:#666666; --accent:#000000; --accent-soft:#ededed; --done:#000000; }
   .theme-glass body, body.theme-glass { background: linear-gradient(160deg,#eef1fb 0%,#e7ecfb 45%,#f2ecfb 100%); background-attachment: fixed; }
-  .topbar, .pages { background: rgba(255,255,255,.78); -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6); }
-  .dark .topbar, .dark .pages { background: rgba(31,31,31,.72); }
-  .theme-glass .topbar, .theme-glass .pages { background: rgba(238,241,251,.62); }
-  .theme-mono .topbar, .theme-mono .pages { background: rgba(255,255,255,.92); }
+  .theme-glass .card { border-radius:22px; background:rgba(255,255,255,.66); box-shadow:0 10px 34px rgba(108,92,231,.16); border:1px solid rgba(255,255,255,.75); }
+  .theme-glass .rowwrap, .theme-glass .row, .theme-glass .g-row { border-radius:18px; }
+  .theme-glass .row, .theme-glass .g-row { background:rgba(255,255,255,.5); }
+  .theme-glass .sheet { border-radius:30px 30px 0 0; background:rgba(255,255,255,.82); -webkit-backdrop-filter:blur(24px) saturate(1.7); backdrop-filter:blur(24px) saturate(1.7); }
+  .theme-glass .chip, .theme-glass .pill { border-radius:999px; }
+  .theme-glass .topbar, .theme-glass .pages { background:rgba(238,241,251,.62); }
+
+  /* — sharp: square, bordered, mono details — */
+  .theme-sharp { --bg:#ffffff; --surface:#ffffff; --surface2:#f4f4f4; --border:#d9d9d9; --text:#111111; --sub:#444444; --muted:#777777; --accent:#111111; --accent-soft:#ededed; --done:#111111; --shadow:0 1px 0 rgba(0,0,0,.28); --shadow-lift:0 2px 0 rgba(0,0,0,.4); }
+  .theme-sharp .card, .theme-sharp .rowwrap, .theme-sharp .row, .theme-sharp .g-row, .theme-sharp .chip, .theme-sharp .pill, .theme-sharp .field, .theme-sharp .seg, .theme-sharp .setting, .theme-sharp .clearbtn, .theme-sharp .menu button, .theme-sharp .searchwrap input { border-radius:4px; box-shadow:none; }
+  .theme-sharp .card { border:1px solid var(--text); }
+  .theme-sharp .rowwrap { border:1px solid var(--border); }
+  .theme-sharp .slabel, .theme-sharp .pill, .theme-sharp .rowact, .theme-sharp .aisle h3 { text-transform:uppercase; letter-spacing:1.2px; font-size:10px; }
+  .theme-sharp .pill, .theme-sharp .metarow, .theme-sharp .due { font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+  .theme-sharp .sheet { border-radius:6px 6px 0 0; }
+  .theme-sharp .topbar, .theme-sharp .pages { background:#fff; border-bottom:1px solid var(--border); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .theme-sharp .topbar h1, .theme-sharp .sheet-head h2 { letter-spacing:.4px; }
+
+  /* — playful: rounded font, chunky, warm — */
+  .theme-playful { --bg:#fff8f1; --surface:#fffdf9; --surface2:#ffeeda; --border:#ffd9b8; --text:#43270f; --sub:#8d5a2b; --muted:#bb8a5c; --accent:#f57c00; --accent-soft:#ffe8c8; --done:#2e7d32; }
+  .theme-playful .app, .theme-playful button, .theme-playful input, .theme-playful select, .theme-playful textarea { font-family:ui-rounded,'SF Pro Rounded',-apple-system,sans-serif; }
+  .theme-playful .card { border-radius:26px; box-shadow:0 14px 34px rgba(245,124,0,.16); }
+  .theme-playful .rowwrap { border-radius:22px; }
+  .theme-playful .row, .theme-playful .g-row { border-radius:18px; padding:15px 12px; }
+  .theme-playful .title { font-size:16px; font-weight:700; }
+  .theme-playful .chip { border-radius:999px; font-weight:800; padding:9px 16px; }
+  .theme-playful .pill { border-radius:999px; background:var(--accent-soft); border:0; }
+  .theme-playful .sheet { border-radius:30px 30px 0 0; }
+  .theme-playful .navbtn { font-weight:800; letter-spacing:.3px; }
+  .theme-playful .metarow .seg { border-radius:999px; }
+  .theme-playful .newlist-float { border-radius:999px; background:var(--accent); }
+
+  /* — compact: dense, minimal, small — */
+  .theme-compact { --bg:#fafafa; --surface:#ffffff; --surface2:#f2f2f2; --border:#e3e3e3; --text:#1c1c1c; --sub:#5b5b5b; --muted:#8a8a8a; --accent:#0b57d0; --accent-soft:#e8f0fe; --done:#0b57d0; }
+  .theme-compact .card { border-radius:10px; padding:12px 13px; box-shadow:0 1px 2px rgba(60,64,67,.12); }
+  .theme-compact .grid { gap:10px; }
+  .theme-compact .rowwrap { border-radius:8px; }
+  .theme-compact .row { padding:7px 6px; gap:10px; border-radius:8px; }
+  .theme-compact .g-row { padding:7px 4px; gap:10px; }
+  .theme-compact .title { font-size:13.5px; }
+  .theme-compact .note { font-size:11.5px; }
+  .theme-compact .pill { font-size:10.5px; padding:2px 8px; }
+  .theme-compact .metarow { padding:6px 10px; }
+  .theme-compact .sheet .content { padding-top:0; }
+  .theme-compact .setting { padding:9px 12px; }
+  .theme-compact .topbar h1 { font-size:18px; }
+
+  /* — motion — */
   .card { transition: transform .16s cubic-bezier(.2,.8,.3,1.15), box-shadow .16s ease; }
   .card:active { transform: scale(.97); }
   .row { transition: background .15s ease, transform .12s ease, opacity .18s ease; }
@@ -408,6 +458,23 @@
   .confetti-bit { position:fixed; top:0; width:9px; height:14px; border-radius:2px; z-index:999; pointer-events:none; animation: confetti-fall 1.5s ease-in forwards; }
   .dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:-2px; border:1px solid rgba(0,0,0,.14); }
   #toast .taction { margin-left:14px; background:transparent; border:0; color:var(--accent); font-weight:800; letter-spacing:.5px; font-size:12.5px; cursor:pointer; padding:4px 6px; }
+
+  /* — touch: no hover ghosts, no first-tap eats — */
+  @media (hover: none) {
+    .ibtn:hover { background:transparent; }
+    .row:hover, .g-row:hover { background:transparent; }
+    .chip:hover { color:var(--sub); }
+    .card:hover { box-shadow:var(--shadow); }
+    .card:hover .stylebtn { opacity:0; }
+    .menu button:hover { background:transparent; }
+    .starbtn:hover { background:transparent; }
+    .check:hover { border-color:var(--muted); color:transparent; }
+    .clearbtn:hover { border-color:var(--border); color:var(--sub); }
+    .navbtn:hover { color:var(--sub); }
+    .newlist-float:hover { transform:translateX(-50%); }
+    .swatch:hover, .grad:hover { transform:none; }
+    .themeopt:hover { border-color:var(--border); }
+  }
 </style>
 <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -519,13 +586,13 @@
   <button class="newlist-float" id="newlist-float" onclick="openNameSheet('new')">+ New list</button>
 
   <!-- ══════════ BACKDROP + SHEETS ══════════ -->
-  <div class="backdrop" id="backdrop" onclick="closeSheets()"></div>
+  <div class="backdrop" id="backdrop" onpointerdown="closeSheets()" onclick="closeSheets()"></div>
 
   <!-- recently deleted -->
   <div class="sheet" id="sheet-trash">
     <div class="grabber"></div>
     <div class="sheet-head"><h2>Recently deleted</h2>
-      <button class="ibtn" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="ibtn" onpointerdown="closeSheets()" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="content" id="trash-list" style="padding-bottom:20px"></div>
     <div style="padding:0 18px 30px"><button class="chip" onclick="emptyTrash()">Empty trash</button></div>
@@ -535,7 +602,7 @@
   <div class="sheet" id="sheet-composer">
     <div class="grabber"></div>
     <div class="sheet-head"><h2>Add something</h2>
-      <button class="ibtn" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="ibtn" onpointerdown="closeSheets()" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="content">
       <input class="field" id="composer-input" placeholder="New task"
@@ -576,7 +643,7 @@
       <button class="ibtn" id="item-star-btn" onclick="toggleStarFromSheet()" aria-label="Star">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       </button>
-      <button class="ibtn" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="ibtn" onpointerdown="closeSheets()" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="content">
       <input class="field" id="item-title" placeholder="Title">
@@ -629,7 +696,7 @@
   <div class="sheet" id="sheet-style">
     <div class="grabber"></div>
     <div class="sheet-head"><h2>Card background</h2>
-      <button class="ibtn" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="ibtn" onpointerdown="closeSheets()" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="content">
       <div class="stylepreview" id="style-preview"></div>
@@ -661,9 +728,9 @@
         <button class="themeopt" id="theme-light" onclick="setTheme('light')"><span class="dot" style="background:#1a73e8"></span>Keep</button>
         <button class="themeopt" id="theme-dark" onclick="setTheme('dark')"><span class="dot" style="background:#8ab4f8"></span>Dark</button>
         <button class="themeopt" id="theme-glass" onclick="setTheme('glass')"><span class="dot" style="background:#6c5ce7"></span>Glass</button>
-        <button class="themeopt" id="theme-sunset" onclick="setTheme('sunset')"><span class="dot" style="background:#ea580c"></span>Sunset</button>
-        <button class="themeopt" id="theme-forest" onclick="setTheme('forest')"><span class="dot" style="background:#15803d"></span>Forest</button>
-        <button class="themeopt" id="theme-mono" onclick="setTheme('mono')"><span class="dot" style="background:#222"></span>Mono</button>
+        <button class="themeopt" id="theme-sharp" onclick="setTheme('sharp')"><span class="dot" style="background:#111"></span>Sharp</button>
+        <button class="themeopt" id="theme-playful" onclick="setTheme('playful')"><span class="dot" style="background:#f57c00"></span>Playful</button>
+        <button class="themeopt" id="theme-compact" onclick="setTheme('compact')"><span class="dot" style="background:#0b57d0"></span>Compact</button>
       </div>
 
       <p class="slabel">Data</p>
@@ -692,7 +759,7 @@
   <div class="sheet" id="sheet-name">
     <div class="grabber"></div>
     <div class="sheet-head"><h2 id="name-sheet-title">Rename list</h2>
-      <button class="ibtn" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="ibtn" onpointerdown="closeSheets()" onclick="closeSheets()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="content">
       <input class="field" id="name-input" placeholder="List name" onkeydown="if(event.key==='Enter')confirmName()">
@@ -823,7 +890,7 @@ function setTheme(mode) {
   if (btn) btn.classList.add('on')
   save()
   try { renderHome() } catch (e) {}
-  const names = { light: 'Keep style', dark: 'Dark style', glass: 'Glass style', sunset: 'Sunset style', forest: 'Forest style', mono: 'Mono style' }
+  const names = { light: 'Keep style', dark: 'Dark style', glass: 'Glass style', sharp: 'Sharp style', playful: 'Playful style', compact: 'Compact style' }
   toast(names[mode] || 'Style set')
 }
 
@@ -1052,7 +1119,7 @@ function renderList() {
   if (t) renderListView(t, 'todo-content', 'todo-clear')
   const g = state.lists.find(l => l.kind === 'grocery')
   if (g) renderListView(g, 'grocery-content', 'grocery-clear')
-  syncBadge(); applyThemeClasses()
+  syncBadge(); applyThemeClasses(); if (!bindSheetGestures._d) { bindSheetGestures._d = 1; bindSheetGestures() }
 }
 function swipeRemove(id) {
   const i = findItem(id); if (!i) return
@@ -1244,7 +1311,7 @@ function applyThemeClasses(){
   try{
     const html=document.documentElement
     html.classList.toggle('dark', state.theme==='dark')
-    ;['glass','sunset','forest','mono'].forEach(m=>html.classList.toggle('theme-'+m, state.theme===m))
+    ;['glass','sharp','playful','compact'].forEach(m=>html.classList.toggle('theme-'+m, state.theme===m))
   }catch(e){}
 }
 function toggleDueSort(){
@@ -1279,6 +1346,34 @@ function purgeTrash(id){
 function emptyTrash(){
   state.trash=[]
   openTrash(); save(); toast('Trash emptied')
+}
+
+function bindSheetGestures(){
+  try{
+    document.querySelectorAll('.sheet').forEach(sh=>{
+      if (sh._bound) return
+      sh._bound = true
+      let sy=0, dy=0, dragging=false
+      sh.addEventListener('touchstart', e=>{
+        const c = e.target && e.target.closest ? e.target.closest('.content') : null
+        if (c && c.scrollTop > 0) return
+        sy = e.touches[0].clientY; dy = 0; dragging = true
+        sh.style.transition = 'none'
+      }, { passive:true })
+      sh.addEventListener('touchmove', e=>{
+        if (!dragging) return
+        dy = e.touches[0].clientY - sy
+        if (dy > 0) sh.style.transform = 'translateY(' + Math.min(dy, 340) + 'px)'
+      }, { passive:true })
+      sh.addEventListener('touchend', ()=>{
+        if (!dragging) return
+        dragging = false
+        sh.style.transition = ''
+        sh.style.transform = ''
+        if (dy > 80) closeSheets()
+      })
+    })
+  }catch(e){}
 }
 
 /* item editor sheet */
@@ -1679,8 +1774,9 @@ function openSheet(name) {
   $('sheet-' + name).classList.add('open')
 }
 function closeSheets() {
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur() } catch (e) {}
   $('backdrop').classList.remove('open')
-  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open'))
+  document.querySelectorAll('.sheet').forEach(s => { s.classList.remove('open'); s.style.transform = '' })
 }
 function flipToggle(btn, label) {
   btn.classList.toggle('on')

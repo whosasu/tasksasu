@@ -622,9 +622,6 @@
 
   <!-- ══════════ TO-DO PAGE (bottom-nav page) ══════════ -->
   <div class="screen" id="screen-todo">
-    <div class="topbar">
-      <h1>✅ To do</h1>
-    </div>
     <div class="metarow">
       <div id="todo-clear"></div>
       <div class="segmented" id="segs-todo">
@@ -676,7 +673,7 @@
   <button class="newlist-float" id="newlist-float" onclick="openNameSheet('new')">+ New list</button>
 
   <!-- ══════════ BACKDROP + SHEETS ══════════ -->
-  <div class="backdrop" id="backdrop" onpointerdown="closeSheets()" onclick="closeSheets()"></div>
+  <div class="backdrop" id="backdrop" onclick="closeSheets()"></div>
 
   <!-- recently deleted -->
   <div class="sheet" id="sheet-trash">
@@ -2050,6 +2047,11 @@ function closeSheets() {
   $('backdrop').classList.remove('open')
   document.querySelectorAll('.sheet').forEach(s => { s.classList.remove('open'); s.style.transform = '' })
 }
+try{ document.addEventListener('click', function(e){
+  if(!document.querySelector('.sheet.open')) return
+  const t = e.target && e.target.closest ? e.target.closest('#list-content .rowwrap, #todo-content .rowwrap, #grocery-content .rowwrap') : null
+  if(t){ e.stopPropagation(); e.preventDefault(); try{ closeSheets() }catch(err){} }
+}, true) }catch(e){}
 function flipToggle(btn, label) {
   btn.classList.toggle('on')
   toast(label + (btn.classList.contains('on') ? ' on' : ' off'))

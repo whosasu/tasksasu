@@ -1,5 +1,5 @@
 /* Tasks ASÜ — service worker: push notifications, deep links, offline shell */
-const CACHE = 'tasks-asu-v1'
+const CACHE = 'tasks-asu-v2'
 const SHELL = ['./']
 
 self.addEventListener('install', (e) => {
@@ -11,6 +11,11 @@ self.addEventListener('activate', (e) => {
     caches.keys()
       .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+      // R35: reload open windows once through the new no-store fetch path so a fresh
+      // build reaches the phone on the very next app open — stale PWA builds are over.
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(list => { for (const c of list) { try { c.navigate(c.url) } catch (_) {} } })
+      .catch(() => {})
   )
 })
 
@@ -22,9 +27,11 @@ self.addEventListener('fetch', (e) => {
   // skip API traffic (REST + edge fns other than the app shell)
   if (url.pathname.includes('/rest/')) return
   if (url.pathname.includes('/functions/v1/notify') || url.pathname.includes('/functions/v1/ai-parse')) return
-  // network-first, cache for offline
+  // R35: documents/navigations ALWAYS bypass the HTTP cache (no more stale builds);
+  // other assets stay network-first with an offline fallback.
+  const isDoc = req.mode === 'navigate' || req.destination === 'document' || url.pathname.endsWith('/') || url.pathname.endsWith('.html')
   e.respondWith(
-    fetch(req).then(res => {
+    fetch(isDoc ? new Request(req, { cache: 'no-store' }) : req).then(res => {
       const copy = res.clone()
       caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {})
       return res

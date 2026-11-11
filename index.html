@@ -416,6 +416,18 @@
   @keyframes fxpop { 0%{opacity:0;transform:translate(-50%,-50%) scale(.7)} 40%{opacity:1;transform:translate(-50%,-50%) scale(1.06)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)} }
   @keyframes fxdash { to { stroke-dashoffset:0 } }
   #fx-canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:10000; }
+
+  /* R39: alarm-style ringing */
+  .alarm { position:fixed; inset:0; z-index:12000; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); background:radial-gradient(120% 90% at 50% 20%, #4a2f6b 0%, #241a3d 55%, #14102b 100%); color:#fff; }
+  .alarm.open { display:flex; animation:fade .18s ease; }
+  .alarm-icon { font-size:74px; line-height:1; animation:alarmpulse 1s ease-in-out infinite; }
+  .alarm-title { font-size:26px; font-weight:800; letter-spacing:.2px; max-width:88vw; word-break:break-word; }
+  .alarm-sub { font-size:14px; color:#c9c2e8; }
+  .alarm-actions { display:flex; gap:12px; margin-top:16px; }
+  .alarm-btn { border:0; border-radius:16px; padding:16px 22px; font-size:16px; font-weight:800; letter-spacing:.3px; }
+  .alarm-btn.stop { background:#fff; color:#241a3d; }
+  .alarm-btn.snooze { background:rgba(255,255,255,.16); color:#fff; }
+  @keyframes alarmpulse { 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.12) } }
   .dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:-2px; border:1px solid rgba(0,0,0,.14); }
   #toast { pointer-events:none; }
   #toast .taction { margin-left:14px; background:transparent; border:0; color:var(--accent); font-weight:800; letter-spacing:.5px; font-size:12.5px; cursor:pointer; padding:4px 6px; pointer-events:auto; }
@@ -673,6 +685,16 @@
   <button class="newlist-float" id="newlist-float" onclick="openNameSheet('new')">+ New list</button>
 
   <!-- ══════════ BACKDROP + SHEETS ══════════ -->
+  <div class="alarm" id="alarm">
+    <div class="alarm-icon">⏰</div>
+    <div class="alarm-title" id="alarm-title"></div>
+    <div class="alarm-sub" id="alarm-sub"></div>
+    <div class="alarm-actions">
+      <button class="alarm-btn snooze" onclick="alarmSnooze()">Snooze 5 min</button>
+      <button class="alarm-btn stop" onclick="alarmStop()">Stop</button>
+    </div>
+  </div>
+
   <div class="backdrop" id="backdrop" onclick="closeSheets()"></div>
 
   <!-- recently deleted -->
@@ -828,6 +850,16 @@
         <button class="toggle on" id="toggle-push" onclick="togglePush(this)"></button>
       </div>
       <p id="push-status" style="font-size:11.5px;color:var(--sub);margin:2px 4px 0"></p>
+      <div class="setting">
+        <div class="ic">⏰</div>
+        <div class="tx"><p>Ring as alarm when due</p></div>
+        <button class="toggle on" id="toggle-alarm" onclick="toggleAlarm(this)"></button>
+      </div>
+      <div class="setting" onclick="testAlarm()">
+        <div class="ic">🔊</div>
+        <div class="tx"><p>Test alarm</p></div>
+        <span style="color:var(--muted)">›</span>
+      </div>
       <div class="setting">
         <div class="ic">✉️</div>
         <div class="tx"><p>Email backup</p></div>
@@ -2310,6 +2342,71 @@ function _markNotified(k){
     if(ks.length>200)ks.slice(0,ks.length-200).forEach(x=>delete _notifiedKeys[x]);
     localStorage.setItem('tn_notified',JSON.stringify(_notifiedKeys));
   }catch(e){}
+}/* ══ R39: alarm-style ringing (in addition to push) ══ */
+let _alarmCtx=null, _alarmTO=null, _alarmCur=null, _alarmQuietTO=null, _alarmSnoozeTO=null
+function _alarmBeep(){
+  try{
+    if(!_alarmCtx) _alarmCtx=new (window.AudioContext||window.webkitAudioContext)()
+    const ctx=_alarmCtx
+    if(ctx.state!=='running'){ try{ ctx.resume() }catch(e){} }
+    const t=ctx.currentTime
+    for(let b=0;b<2;b++){
+      const t0=t+b*0.24
+      const o=ctx.createOscillator(), g=ctx.createGain()
+      o.type='triangle'; o.frequency.value=880
+      g.gain.setValueAtTime(0.0001,t0)
+      g.gain.exponentialRampToValueAtTime(0.9,t0+0.015)
+      g.gain.setValueAtTime(0.9,t0+0.15)
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+0.21)
+      o.connect(g); g.connect(ctx.destination)
+      o.start(t0); o.stop(t0+0.23)
+    }
+    try{ if(navigator.vibrate) navigator.vibrate([220,110,220]) }catch(e){}
+  }catch(e){}
+}
+function _alarmStopRing(){
+  try{ clearInterval(_alarmTO) }catch(e){}
+  try{ clearTimeout(_alarmQuietTO) }catch(e){}
+  try{ if(_alarmCtx&&_alarmCtx.close) _alarmCtx.close() }catch(e){}
+  _alarmCtx=null
+}
+function _alarmStartRing(){
+  _alarmStopRing()
+  _alarmBeep()
+  _alarmTO=setInterval(_alarmBeep,1400)
+  _alarmQuietTO=setTimeout(function(){ try{ clearInterval(_alarmTO) }catch(e){} },120000)
+}
+function openAlarmFor(i){
+  try{
+    _alarmCur=i
+    const l=state.lists.find(x=>x.id===i.listId)
+    $('alarm-title').textContent=i.title
+    $('alarm-sub').textContent=(l?l.emoji+' '+l.name+' · ':'')+(i.due?('Due '+(typeof dueText==='function'?dueText(i):i.due)):'Reminder')
+    $('alarm').classList.add('open')
+    _alarmStartRing()
+  }catch(e){}
+}
+function alarmStop(){
+  _alarmStopRing()
+  try{ $('alarm').classList.remove('open') }catch(e){}
+}
+function alarmSnooze(){
+  const i=_alarmCur
+  alarmStop()
+  try{ clearTimeout(_alarmSnoozeTO) }catch(e){}
+  _alarmSnoozeTO=setTimeout(function(){ try{ if(i && !i.done) openAlarmFor(i) }catch(e){} },5*60000)
+  toast('Snoozed \u2013 rings in 5 min')
+}
+function toggleAlarm(btn){
+  btn.classList.toggle('on')
+  state.settings.alarmRing=btn.classList.contains('on')
+  save(); toast(state.settings.alarmRing?'Alarm on':'Alarm off')
+}
+function testAlarm(){
+  try{
+    const it=state.items.find(x=>!x.done)||{title:'Test alarm',listId:'todo',due:''}
+    openAlarmFor(it)
+  }catch(e){}
 }
 async function localDueCheck(){
   try{
@@ -2330,6 +2427,7 @@ async function localDueCheck(){
           const reg=await navigator.serviceWorker.getRegistration();
           if(reg&&reg.showNotification){
             await reg.showNotification(i.title,{body:(l?l.emoji+' '+l.name:'')+(period?' · repeats':''),tag:'task-'+i.id+'-'+k,data:{itemId:i.id,url:location.origin+location.pathname+'?item='+i.id}});
+        try{ if(state.settings.alarmRing!==false && typeof openAlarmFor==='function') openAlarmFor(i) }catch(e3){}
           }
         }catch(e2){}
       }
@@ -2344,6 +2442,7 @@ document.documentElement.classList.toggle('dark', state.theme === 'dark')
 $('theme-light').classList.toggle('on', state.theme === 'light')
 $('theme-dark').classList.toggle('on', state.theme === 'dark')
 $('toggle-push').classList.toggle('on', !!state.settings.pushEnabled)
+$('toggle-alarm').classList.toggle('on', state.settings.alarmRing !== false)
 $('toggle-email').classList.toggle('on', !!state.settings.emailEnabled)
 $('email-input').value = state.settings.emailAddress || ''
 renderHome()
@@ -2361,7 +2460,7 @@ pullCloud()
 try {
   const qp = new URLSearchParams(location.search)
   const deepItem = qp.get('item')
-  if (deepItem) { const it = findItem(deepItem); if (it) { openList(it.listId); openItem(it.id) } }
+  if (deepItem) { const it = findItem(deepItem); if (it) { openList(it.listId); openItem(it.id); if (state.settings.alarmRing !== false) { try { openAlarmFor(it) } catch(e) {} } } }
 } catch(e) {}
 </script>
 </body>

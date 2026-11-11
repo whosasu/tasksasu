@@ -411,7 +411,8 @@
   @keyframes fxdash { to { stroke-dashoffset:0 } }
   #fx-canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:10000; }
   .dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:-2px; border:1px solid rgba(0,0,0,.14); }
-  #toast .taction { margin-left:14px; background:transparent; border:0; color:var(--accent); font-weight:800; letter-spacing:.5px; font-size:12.5px; cursor:pointer; padding:4px 6px; }
+  #toast { pointer-events:none; }
+  #toast .taction { margin-left:14px; background:transparent; border:0; color:var(--accent); font-weight:800; letter-spacing:.5px; font-size:12.5px; cursor:pointer; padding:4px 6px; pointer-events:auto; }
 
   /* ═══ DARK — sleek night ═══ */
   .dark { --bg:#14161a; --surface:#1d2026; --surface2:#272b33; --border:#333944; --text:#eef1f6; --sub:#9aa4b2; --muted:#6b7480; --accent:#5b9dff; --accent-soft:#1e2c44; --done:#5b9dff; --shadow:0 4px 18px rgba(0,0,0,.42); --shadow-lift:0 16px 44px rgba(0,0,0,.55); color-scheme:dark; }
@@ -1194,6 +1195,8 @@ function setFilter(f, btn, key) {
   renderList()
 }
 function renderList() {
+  try{ if(!_fxRunning){ const o1=document.getElementById('fx-overlay'); if(o1&&o1.remove)o1.remove(); const c1=document.getElementById('fx-canvas'); if(c1&&c1.remove)c1.remove() } }catch(e){}
+  try{ document.querySelectorAll('.rowwrap.swiping').forEach(w=>{ w.classList.remove('swiping'); w.removeAttribute('data-dir') }) }catch(e){}
   const push = state.lists.find(l => l.id === state.page)
   if (push) renderListView(push, 'list-content', 'clear-slot')
   const t = state.lists.find(l => l.kind === 'todo')
@@ -1214,7 +1217,7 @@ function renderListView(list, contentId, clearId) {
   const filter = (state.filters && state.filters[list.id]) || 'all'
   const items = state.items.filter(i => i.listId === list.id)
   const shown = items.filter(i => filter === 'all' ? true : filter === 'open' ? !i.done : i.done)
-  const dueKey = (i) => { const ep = (typeof parseDue === 'function' && i.due) ? parseDue(i.due) : null; return ep ? new Date(ep).getTime() : Infinity }
+  const dueKey = (i) => { try { const ep = (typeof parseDue === 'function' && i.due) ? parseDue(i.due) : null; return ep ? new Date(ep).getTime() : Infinity } catch (e) { return Infinity } }
   const dsort = state.dueSort && state.dueSort[list.id]
   shown.sort((a,b) => (a.done?1:0)-(b.done?1:0) || (b.star?1:0)-(a.star?1:0) || (dsort ? dueKey(a)-dueKey(b) : 0) || (list.glow ? STATUS_RANK[statusOf(a)] - STATUS_RANK[statusOf(b)] : 0))
 
@@ -1314,22 +1317,43 @@ function playDoneFX(rowEl, circleEl, onEnd){
   if(_fxRunning){ try{ onEnd&&onEnd() }catch(e){} return }
   _fxRunning=true
   let finished=false, raf=0
-  const ov=document.createElement('div'); ov.id='fx-overlay'
-  const cm=document.createElement('div'); cm.id='fx-check'
-  cm.innerHTML='<svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="38" fill="#188038"/><path d="M24 43l13 13 24-27" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
-  ov.appendChild(cm)
-  const cv=document.createElement('canvas'); cv.id='fx-canvas'
-  document.body.appendChild(ov); document.body.appendChild(cv)
+  const anims=[]
+  let ov=null, cv=null, targetRow=null
   function end(skipped){
     if(finished) return
     finished=true
     _fxRunning=false
     try{ if(raf)cancelAnimationFrame(raf) }catch(e){}
-    try{ ov.remove() }catch(e){}
-    try{ cv.remove() }catch(e){}
-    try{ onEnd&&onEnd() }catch(e){}
+    if(skipped){ anims.forEach(a=>{ try{ a.finish() }catch(e){} }) }
+    try{ if(targetRow)targetRow.style.pointerEvents='' }catch(e){}
+    try{ if(ov&&ov.remove)ov.remove() }catch(e){}
+    try{ if(cv&&cv.remove)cv.remove() }catch(e){}
   }
-  ov.addEventListener('click',function(e){ e.stopPropagation(); e.preventDefault(); end(true) },{once:true})
+  try{
+    ov=document.createElement('div'); ov.id='fx-overlay'
+    const cm=document.createElement('div'); cm.id='fx-check'
+    cm.innerHTML='<svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="38" fill="#188038"/><path d="M24 43l13 13 24-27" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+    ov.appendChild(cm)
+    cv=document.createElement('canvas'); cv.id='fx-canvas'
+    document.body.appendChild(ov); document.body.appendChild(cv)
+    ov.addEventListener('click',function(e){ e.stopPropagation(); e.preventDefault(); end(true) },{once:true})
+  }catch(e){ end(true); try{ onEnd&&onEnd() }catch(e2){} return }
+
+  /* ── capture FIRST: pre-render geometry of every row in the list ── */
+  const wrap0=(rowEl&&rowEl.closest)?rowEl.closest('.rowwrap'):null
+  const container=wrap0?wrap0.parentElement:null
+  const idAttr=wrap0?wrap0.dataset.id:null
+  let firstTop=0
+  const firstTops=new Map()
+  try{
+    firstTop=rowEl.getBoundingClientRect().top
+    container.querySelectorAll('.rowwrap[data-id]').forEach(w=>{ firstTops.set(String(w.dataset.id), w.getBoundingClientRect().top) })
+  }catch(e){}
+
+  /* ── commit NOW: done-state renders into its final place immediately ── */
+  try{ onEnd&&onEnd() }catch(e){}
+
+  /* ── micro-particles from the original check-circle position (demo #8) ── */
   try{
     const rect=circleEl&&circleEl.getBoundingClientRect?circleEl.getBoundingClientRect():null
     const W=cv.width=Math.round(window.innerWidth), H=cv.height=Math.round(window.innerHeight)
@@ -1360,15 +1384,39 @@ function playDoneFX(rowEl, circleEl, onEnd){
       raf=requestAnimationFrame(tick)
     }
   }catch(e){}
+
+  /* ── FLIP: rows close rank upward while the done row FALLS through the
+     list to its new home at the bottom - it visibly scrolls past every
+     task on its way, then lands with a tiny settle. ~0.85s of fall. ── */
   try{
-    if(rowEl&&rowEl.animate){
-      const base=(rowEl.style&&rowEl.style.transform)?rowEl.style.transform+' ':''
-      const a=rowEl.animate(
-        [{transform:base+'translateY(0)',opacity:1},{transform:base+'translateY(26px)',opacity:0}],
-        {duration:520,delay:320,easing:'cubic-bezier(.3,.6,.2,1)',fill:'forwards'})
-      a.onfinish=function(){ end(false) }
+    if(container&&idAttr!=null&&container.querySelectorAll){
+      const wraps=container.querySelectorAll('.rowwrap[data-id]')
+      for(const w of wraps){
+        const wid=String(w.dataset.id)
+        const oldTop=firstTops.has(wid)?firstTops.get(wid):null
+        const newTop=w.getBoundingClientRect().top
+        if(wid===String(idAttr)){
+          const r2=w.querySelector('.row')||w.querySelector('.g-row')
+          targetRow=r2||w
+          try{ targetRow.style.pointerEvents='none' }catch(e){}
+          const delta=firstTop-newTop
+          if(Math.abs(delta)>1&&targetRow.animate){
+            const a=targetRow.animate([
+              {transform:'translateY('+delta+'px)',easing:'cubic-bezier(.55,.05,.85,.4)'},
+              {transform:'translateY(4px)',offset:.9,easing:'cubic-bezier(.2,.7,.3,1)'},
+              {transform:'translateY(0)'}
+            ],{duration:850})
+            anims.push(a)
+            a.onfinish=function(){ end(false) }
+          }
+        }else if(oldTop!=null&&Math.abs(oldTop-newTop)>1&&w.animate){
+          const s=w.animate([{transform:'translateY('+(oldTop-newTop)+'px)'},{transform:'translateY(0)'}],{duration:420,easing:'cubic-bezier(.25,.6,.3,1)'})
+          anims.push(s)
+        }
+      }
     }
   }catch(e){}
+
   setTimeout(function(){ end(false) },1150)
 }
 function toggleDone(id) {

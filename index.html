@@ -402,6 +402,14 @@
   
   @keyframes confetti-fall { 0% { transform: translateY(-12px) rotate(0deg); opacity:1 } 100% { transform: translateY(92vh) rotate(720deg); opacity:.12 } }
   .confetti-bit { position:fixed; top:0; width:9px; height:14px; border-radius:2px; z-index:999; pointer-events:none; animation: confetti-fall 1.5s ease-in forwards; }
+
+  /* R32: quiet-check completion fx (preview #8) */
+  #fx-overlay { position:fixed; inset:0; z-index:9999; touch-action:none; -webkit-tap-highlight-color:transparent; }
+  #fx-check { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); animation:fxpop .55s cubic-bezier(.2,.9,.3,1.2) forwards; }
+  #fx-check svg path { stroke-dasharray:80; stroke-dashoffset:80; animation:fxdash .5s .05s ease forwards; }
+  @keyframes fxpop { 0%{opacity:0;transform:translate(-50%,-50%) scale(.7)} 40%{opacity:1;transform:translate(-50%,-50%) scale(1.06)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+  @keyframes fxdash { to { stroke-dashoffset:0 } }
+  #fx-canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:10000; }
   .dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:-2px; border:1px solid rgba(0,0,0,.14); }
   #toast .taction { margin-left:14px; background:transparent; border:0; color:var(--accent); font-weight:800; letter-spacing:.5px; font-size:12.5px; cursor:pointer; padding:4px 6px; }
 
@@ -1284,12 +1292,99 @@ function cycleStatus(id) {
   toast(STATUS_LABEL[i.status])
   state.page === 'home' ? renderHome() : renderList()
 }
+/* ══ R32: quiet-check completion celebration (preview #8). Confetti + row exit together, ~1.1s.
+   Fullscreen overlay blocks ALL input during the window; one tap anywhere skips it instantly. ══ */
+let _fxRunning=false
+function rowFor(id){
+  try{
+    const s="toggleDone('"+id+"')"
+    const btns=document.querySelectorAll('.check')
+    let fallback=null
+    for(const b of btns){
+      if((b.getAttribute('onclick')||'').indexOf(s)>=0){
+        const r=b.closest('.row')||b.closest('.g-row')||b
+        if(r.offsetParent!==null) return r
+        if(!fallback) fallback=r
+      }
+    }
+    return fallback
+  }catch(e){ return null }
+}
+function playDoneFX(rowEl, circleEl, onEnd){
+  if(_fxRunning){ try{ onEnd&&onEnd() }catch(e){} return }
+  _fxRunning=true
+  let finished=false, raf=0
+  const ov=document.createElement('div'); ov.id='fx-overlay'
+  const cm=document.createElement('div'); cm.id='fx-check'
+  cm.innerHTML='<svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="38" fill="#188038"/><path d="M24 43l13 13 24-27" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+  ov.appendChild(cm)
+  const cv=document.createElement('canvas'); cv.id='fx-canvas'
+  document.body.appendChild(ov); document.body.appendChild(cv)
+  function end(skipped){
+    if(finished) return
+    finished=true
+    _fxRunning=false
+    try{ if(raf)cancelAnimationFrame(raf) }catch(e){}
+    try{ ov.remove() }catch(e){}
+    try{ cv.remove() }catch(e){}
+    try{ onEnd&&onEnd() }catch(e){}
+  }
+  ov.addEventListener('click',function(e){ e.stopPropagation(); e.preventDefault(); end(true) },{once:true})
+  try{
+    const rect=circleEl&&circleEl.getBoundingClientRect?circleEl.getBoundingClientRect():null
+    const W=cv.width=Math.round(window.innerWidth), H=cv.height=Math.round(window.innerHeight)
+    const ctx=cv.getContext&&cv.getContext('2d')
+    if(ctx&&rect){
+      const colors=['#1a73e8','#fbbc04','#34a853','#ea4335','#a142f4','#00acc1']
+      const parts=[]
+      const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2
+      for(let n=0;n<10;n++){
+        const a=Math.random()*Math.PI*2, sp=.05+Math.random()*.11
+        parts.push({x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-.04,s:3+Math.random()*2,c:colors[n%colors.length],prev:0})
+      }
+      const t0=performance.now()
+      const tick=function(now){
+        if(finished) return
+        const age=now-t0
+        ctx.clearRect(0,0,W,H)
+        if(age>1100) return
+        for(const p of parts){
+          const dt=Math.min(now-(p.prev||now),60); p.prev=now
+          p.vy+=0.00042*dt; p.x+=p.vx*dt; p.y+=p.vy*dt
+          ctx.globalAlpha=Math.max(0,1-age/1100)
+          ctx.fillStyle=p.c
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.s/2,0,7); ctx.fill()
+        }
+        raf=requestAnimationFrame(tick)
+      }
+      raf=requestAnimationFrame(tick)
+    }
+  }catch(e){}
+  try{
+    if(rowEl&&rowEl.animate){
+      const base=(rowEl.style&&rowEl.style.transform)?rowEl.style.transform+' ':''
+      const a=rowEl.animate(
+        [{transform:base+'translateY(0)',opacity:1},{transform:base+'translateY(26px)',opacity:0}],
+        {duration:520,delay:320,easing:'cubic-bezier(.3,.6,.2,1)',fill:'forwards'})
+      a.onfinish=function(){ end(false) }
+    }
+  }catch(e){}
+  setTimeout(function(){ end(false) },1150)
+}
 function toggleDone(id) {
   const i = findItem(id); if (!i) return
   if (i.habit && !i.done) return rollHabit(i)
   i.done = !i.done
   if (i.done && i.repeat) toast('Done — repeating reminder stopped')
-  renderList(); try{ if(document.activeElement&&document.activeElement.blur)document.activeElement.blur() }catch(e){}
+  const finish=function(){
+    renderList(); save()
+    try{ if(document.activeElement&&document.activeElement.blur)document.activeElement.blur() }catch(e){}
+  }
+  const row=(i.done && typeof rowFor==='function')?rowFor(id):null
+  if(row && typeof playDoneFX==='function'){
+    try{ playDoneFX(row, row.querySelector('.check'), finish); return }catch(e){}
+  }
+  finish()
 }
 function toggleHabitChip() {
   $('item-habit-chip').classList.toggle('on')

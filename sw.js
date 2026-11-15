@@ -11,11 +11,6 @@ self.addEventListener('activate', (e) => {
     caches.keys()
       .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
-      // R35: reload open windows once through the new no-store fetch path so a fresh
-      // build reaches the phone on the very next app open — stale PWA builds are over.
-      .then(() => self.clients.matchAll({ type: 'window' }))
-      .then(list => { for (const c of list) { try { c.navigate(c.url) } catch (_) {} } })
-      .catch(() => {})
   )
 })
 
@@ -26,12 +21,10 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return
   // skip API traffic (REST + edge fns other than the app shell)
   if (url.pathname.includes('/rest/')) return
-  if (url.pathname.includes('/functions/v1/notify') || url.pathname.includes('/functions/v1/ai-parse')) return
-  // R35: documents/navigations ALWAYS bypass the HTTP cache (no more stale builds);
-  // other assets stay network-first with an offline fallback.
-  const isDoc = req.mode === 'navigate' || req.destination === 'document' || url.pathname.endsWith('/') || url.pathname.endsWith('.html')
+  if (url.pathname.includes('/functions/v1/')) return
+  // network-first, cache for offline
   e.respondWith(
-    fetch(isDoc ? new Request(req, { cache: 'no-store' }) : req).then(res => {
+    fetch(req).then(res => {
       const copy = res.clone()
       caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {})
       return res
@@ -44,6 +37,8 @@ self.addEventListener('push', (e) => {
   try { d = e.data.json() } catch (_) { d = { title: 'Reminder', body: e.data ? e.data.text() : '' } }
   e.waitUntil(self.registration.showNotification(d.title || 'Reminder', {
     body: d.body || '',
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
     tag: d.tag || ('task-' + (d.itemId || 'x') + '-' + Date.now()),
     data: { itemId: d.itemId, url: d.url },
   }))

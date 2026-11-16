@@ -707,6 +707,7 @@
         <div style="display:flex; gap:8px; margin-top:12px">
           <button class="chip" id="composer-habit-chip" onclick="toggleComposerHabit()">🔄 Habit</button>
           <button class="chip" id="composer-repeat-chip" onclick="toggleComposerRepeat()">🔁 Repeat</button>
+          <button class="chip" id="composer-hyper-chip" onclick="toggleComposerHyper()">⚡ Hyper</button>
         </div>
         <div id="composer-repeat-wrap" style="display:none">
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px" id="composer-repeat-chips"></div>
@@ -743,6 +744,7 @@
       <div style="display:flex; gap:8px; margin-top:12px">
         <button class="chip" id="item-done-chip" onclick="toggleDoneFromSheet()">Mark done</button>
         <button class="chip" id="item-habit-chip" onclick="toggleHabitChip()">🔄 Habit</button>
+        <button class="chip" id="item-hyper-chip" onclick="toggleItemHyper()">⚡ Hyper</button>
       </div>
       <div id="item-due-row" style="display:flex; gap:8px; margin-top:10px">
         <input type="time" class="field" id="item-time" style="flex:1; margin:0">
@@ -815,7 +817,7 @@
     <div class="rows" style="padding:10px 18px 40px">
       <p class="slabel">Design</p>
       <div class="themepick">
-        <button class="themeopt" id="theme-light" onclick="setTheme('light')"><span class="dot" style="background:#1a73e8"></span>Keep</button>
+        <button class="themeopt" id="theme-light" onclick="setTheme('light')"><span class="dot" style="background:#1a73e8"></span>Light</button>
         <button class="themeopt" id="theme-dark" onclick="setTheme('dark')"><span class="dot" style="background:#5b9dff"></span>Dark</button>
       </div>
 
@@ -833,26 +835,15 @@
         <button class="toggle on" id="toggle-push" onclick="togglePush(this)"></button>
       </div>
       <p id="push-status" style="font-size:11.5px;color:var(--sub);margin:2px 4px 0"></p>
-      <div class="setting">
-        <div class="ic">⚡</div>
-        <div class="tx"><p>Hyper push — spam every 2s</p></div>
-        <button class="toggle" id="toggle-hyper" onclick="toggleHyper(this)"></button>
-      </div>
-      <div class="setting" id="hyper-count-row" style="display:none">
+      <div class="setting" id="hyper-count-row">
         <div class="ic">🔥</div>
-        <div class="tx"><p>Burst size</p></div>
+        <div class="tx"><p>Hyper burst size</p></div>
         <div class="segmented" id="segs-hyper">
           <button class="seg" onclick="setHyperCount(10,this)">10×</button>
           <button class="seg active" onclick="setHyperCount(15,this)">15×</button>
           <button class="seg" onclick="setHyperCount(30,this)">30×</button>
         </div>
       </div>
-      <div class="setting">
-        <div class="ic">✉️</div>
-        <div class="tx"><p>Email backup</p></div>
-        <button class="toggle" id="toggle-email" onclick="toggleEmail(this)"></button>
-      </div>
-      <input class="field" id="email-input" placeholder="Email for backup reminders" style="margin:10px 0 4px" oninput="setEmailInput(this.value)">
     </div>
   </div>
 
@@ -1029,7 +1020,7 @@ function setTheme(mode) {
   if (btn) btn.classList.add('on')
   save()
   try { renderHome() } catch (e) {}
-  const names = { light: 'Keep', dark: 'Dark', glass: 'Aurora', sharp: 'Brutal', playful: 'Candy', editorial: 'Editorial', compact: 'Pro' }
+  const names = { light: 'Light', dark: 'Dark', glass: 'Aurora', sharp: 'Brutal', playful: 'Candy', editorial: 'Editorial', compact: 'Pro' }
   toast(names[mode] || 'Style set')
 }
 
@@ -1496,6 +1487,9 @@ function toggleDone(id) {
 function toggleHabitChip() {
   $('item-habit-chip').classList.toggle('on')
 }
+function toggleItemHyper() {
+  $('item-hyper-chip').classList.toggle('on')
+}
 /* habits: done once -> rolls to the next period, keeps reminding forever.
    Cadence = repeat if it is >= 1 day, else daily (sub-daily repeats are the nag rate). */
 function habitPeriodMs(i) {
@@ -1679,6 +1673,8 @@ function openItem(id) {
   $('item-repeat-row').style.display = isGroc ? 'none' : 'block'
   $('item-habit-chip').style.display = isGroc ? 'none' : ''
   $('item-habit-chip').classList.toggle('on', !!i.habit)
+  $('item-hyper-chip').style.display = isGroc ? 'none' : ''
+  $('item-hyper-chip').classList.toggle('on', !!i.hyper)
   $('item-status-row').style.display = list && list.glow ? 'block' : 'none'
   refreshStatusChips()
   $('item-star-btn').style.color = i.star ? 'var(--accent)' : ''
@@ -1749,6 +1745,7 @@ function saveItemSheet() {
   i.due = dueFromPair('item-time', 'item-date')
   i.repeat = $('item-repeat-chips').dataset.value || ''
   i.habit = $('item-habit-chip').classList.contains('on')
+  i.hyper = $('item-hyper-chip').classList.contains('on')
   const gl = state.lists.find(l => l.id === i.listId)
   if (gl && gl.kind === 'grocery') { i.due = ''; i.repeat = ''; i.habit = false }
   const q = $('item-qty').value.trim()
@@ -1778,6 +1775,7 @@ function openComposer() {
   $('composer-input').value = ''
   dueToPair('', 'composer-time', 'composer-date')
   $('composer-habit-chip').classList.remove('on')
+  $('composer-hyper-chip').classList.remove('on')
   $('composer-repeat-chip').classList.remove('on')
   $('composer-repeat-chip').textContent = '🔁 Repeat'
   $('composer-repeat-wrap').style.display = 'none'
@@ -1809,6 +1807,9 @@ function dueToPair(val, tId, dId){
 }
 function toggleComposerHabit(){
   $('composer-habit-chip').classList.toggle('on')
+}
+function toggleComposerHyper(){
+  $('composer-hyper-chip').classList.toggle('on')
 }
 function toggleComposerRepeat(){
   const w=$('composer-repeat-wrap')
@@ -1943,6 +1944,7 @@ function submitComposer() {
     due: isGroc ? '' : rollPastDue(dueFromPair('composer-time', 'composer-date')),
     repeat: isGroc ? '' : ($('composer-repeat-chips').dataset.value || (repM ? repM[0].toLowerCase() : '')),
     habit: !isGroc && $('composer-habit-chip').classList.contains('on'),
+    hyper: !isGroc && $('composer-hyper-chip').classList.contains('on'),
     qty: qty, unit: unit, cat,
   }
   state.items.unshift(item)
@@ -2286,15 +2288,6 @@ async function togglePush(btn){
   }catch(e){toast('Could not enable push')}
   refreshPushStatus();
 }
-function toggleEmail(btn){
-  btn.classList.toggle('on');
-  state.settings.emailEnabled=btn.classList.contains('on');
-  save();toast('Email backup '+(state.settings.emailEnabled?'on':'off'));
-}
-function setEmailInput(v){
-  state.settings.emailAddress=(v||'').trim();
-  save();
-}
 
 /* ═══════════ push self-heal + in-app due fallback ═══════════ */
 async function ensurePushSub(){
@@ -2344,11 +2337,6 @@ function _markNotified(k){
     if(ks.length>200)ks.slice(0,ks.length-200).forEach(x=>delete _notifiedKeys[x]);
     localStorage.setItem('tn_notified',JSON.stringify(_notifiedKeys));
   }catch(e){}
-}function toggleHyper(btn){
-  btn.classList.toggle('on')
-  state.settings.hyperPush = btn.classList.contains('on')
-  try{ $('hyper-count-row').style.display = state.settings.hyperPush ? '' : 'none' }catch(e){}
-  save(); toast(state.settings.hyperPush ? 'Hyper push on' : 'Hyper push off')
 }
 function setHyperCount(n, btn){
   state.settings.hyperCount = n
@@ -2375,7 +2363,7 @@ async function localDueCheck(){
           if(reg&&reg.showNotification){
             await reg.showNotification(i.title,{body:(l?l.emoji+' '+l.name:'')+(period?' · repeats':''),tag:'task-'+i.id+'-'+k,data:{itemId:i.id,url:location.origin+location.pathname+'?item='+i.id}});
         try{
-          if(state.settings.hyperPush && navigator.serviceWorker){
+          if(i.hyper && navigator.serviceWorker){
             const hn=Math.min(30, state.settings.hyperCount||15)
             for(let hx=2; hx<=hn; hx++){
               (function(hx){ setTimeout(async function(){
@@ -2402,11 +2390,7 @@ document.documentElement.classList.toggle('dark', state.theme === 'dark')
 $('theme-light').classList.toggle('on', state.theme === 'light')
 $('theme-dark').classList.toggle('on', state.theme === 'dark')
 $('toggle-push').classList.toggle('on', !!state.settings.pushEnabled)
-$('toggle-hyper').classList.toggle('on', !!state.settings.hyperPush)
-$('hyper-count-row').style.display = state.settings.hyperPush ? '' : 'none'
 try{ const hn=(state.settings.hyperCount||15); document.querySelectorAll('#segs-hyper .seg').forEach((b,idx)=>b.classList.toggle('active', hn===[10,15,30][idx])) }catch(e){}
-$('toggle-email').classList.toggle('on', !!state.settings.emailEnabled)
-$('email-input').value = state.settings.emailAddress || ''
 renderHome()
 renderList()
 if ('serviceWorker' in navigator) {
@@ -2435,5 +2419,5 @@ try {
   if (deepItem) { const it = findItem(deepItem); if (it) { openList(it.listId); openItem(it.id); try { toast('\uD83D\uDD14 ' + it.title) } catch(e) {} } }
 } catch(e) {}
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5b17abc6ee0a943',t:'MTc5NDc3OTUwOQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5b17abc6ee0a943',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5b17eb75de7081e',t:'MTc5NDc3OTY3Mg=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5b17eb75de7081e',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5b17abc6ee0a943',t:'MTc5NDc3OTUwOQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5b17abc6ee0a943',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5b291694cbd0731',t:'MTc5NDc5MDkyMw=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5b291694cbd0731',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

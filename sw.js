@@ -1,5 +1,5 @@
 /* Tasks ASÜ — service worker: push notifications, deep links, offline shell */
-const CACHE = 'tasks-asu-v2'
+const CACHE = 'tasks-asu-v3'
 const SHELL = ['./']
 
 self.addEventListener('install', (e) => {

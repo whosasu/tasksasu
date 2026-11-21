@@ -24,7 +24,8 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.includes('/functions/v1/')) return
   // network-first, cache for offline
   e.respondWith(
-    fetch(req).then(res => {
+    // documents always bypass the HTTP cache (no stale builds); assets stay network-first
+    fetch(req.mode === 'navigate' ? new Request(req, { cache: 'no-store' }) : req).then(res => {
       const copy = res.clone()
       caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {})
       return res
@@ -35,13 +36,26 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let d = {}
   try { d = e.data.json() } catch (_) { d = { title: 'Reminder', body: e.data ? e.data.text() : '' } }
-  e.waitUntil(self.registration.showNotification(d.title || 'Reminder', {
-    body: d.body || '',
-    icon: 'icon-192.png',
-    badge: 'icon-192.png',
-    tag: d.tag || ('task-' + (d.itemId || 'x') + '-' + Date.now()),
-    data: { itemId: d.itemId, url: d.url },
-  }))
+  // hyper push: one remote push becomes N local notifications 2s apart (works app closed too)
+  const hyper = (typeof d.hyper === 'number' && d.hyper > 1) ? Math.min(30, Math.floor(d.hyper)) : 1
+  const baseTag = d.tag || ('task-' + (d.itemId || 'x') + '-' + Date.now())
+  const show = (k) => self.registration.showNotification(
+    (hyper > 1 && k > 1) ? ((d.title || 'Reminder') + ' (' + k + '/' + hyper + ')') : (d.title || 'Reminder'),
+    {
+      body: d.body || '',
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
+      tag: hyper > 1 ? baseTag + '-h' + k : baseTag,
+      data: { itemId: d.itemId, url: d.url },
+    }
+  )
+  if (hyper === 1) { e.waitUntil(show(1)); return }
+  e.waitUntil((async () => {
+    for (let k = 1; k <= hyper; k++) {
+      try { await show(k) } catch (_) {}
+      if (k < hyper) await new Promise((r) => setTimeout(r, 2000))
+    }
+  })())
 })
 
 self.addEventListener('notificationclick', (e) => {

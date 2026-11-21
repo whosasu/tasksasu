@@ -867,6 +867,7 @@
 /* ═══════════ state ═══════════ */
 let uid = 100
 const state = {
+  _demo: true,
   theme: 'light',
   page: 'home',        // pushed list id | 'home'
   pager: 'home',       // 'home' | 'todo' | 'grocery' | 'settings'
@@ -932,7 +933,7 @@ const state = {
 }
 
 /* persistence (degrades to memory inside the Arena preview) */
-function save() { try { localStorage.setItem('tn_html_v3', JSON.stringify(state)) } catch(e){} try { scheduleSync() } catch(e){} }
+function save() { try { if(state.gone){ const gk=Object.keys(state.gone); if(gk.length>800) gk.slice(0,gk.length-800).forEach(k=>delete state.gone[k]) } localStorage.setItem('tn_html_v3', JSON.stringify(state)) } catch(e){} try { scheduleSync() } catch(e){} }
 /* ══ R34: collision-proof ids. `uid` used to restart at 100 on every load, so two
    tasks could end up sharing one id and 'act as one'. Repair splits twins (both
    survive, second gets a fresh id); newId() can never hand out an id in use. ══ */
@@ -957,13 +958,14 @@ function repairItemIds(){
 function load() {
   try {
     const raw = localStorage.getItem('tn_html_v3')
-    if (raw) { const s = JSON.parse(raw); if (s && s.lists && s.items) Object.assign(state, s) }
+    if (raw) { const s = JSON.parse(raw); if (s && s.lists && s.items) { Object.assign(state, s); state._demo = false } }
     // migrate: watch-status glow on Movies/Series/Anime (older saves lack the flag)
     ;['movies','series','anime'].forEach(id => { const l = state.lists.find(x => x.id === id); if (l) l.glow = true })
     if (!state.filters) state.filters = {}
     if (!state.pager) state.pager = 'home'
     state.items.forEach(i => { const l = state.lists.find(x => x.id === i.listId); if (l && l.kind === 'grocery') { i.due = ''; i.repeat = '' } })
     fixIds()
+    recatGrocery()
   } catch(e){}
 }
 
@@ -978,6 +980,91 @@ function fixIds() {
     seen.add(String(i.id))
   })
   if (max > uid) uid = max
+}
+
+/* ══ R43: data-loss armor — item-level merge with timestamps + tombstones.
+   Old surfaces (backgrounded tabs with stale memory) used to overwrite newer
+   data wholesale; now every change is stamped and merges never drop items. ══ */
+function touch(i){ try{ state._demo = false; i._t = Date.now() }catch(e){} }
+function guessCatFor(lowerText){
+  try{
+    let best = null, bestLen = 0
+    const t = String(lowerText || '').toLowerCase()
+    for (const [c, re] of Object.entries(FOOD)) {
+      for (const w of re.split('|')) {
+        if (!w) continue
+        if (matchFoodWord(t, w) && w.length > bestLen) { best = c; bestLen = w.length }
+      }
+    }
+    return best
+  }catch(e){ return null }
+}
+function recatGrocery(){
+  try{
+    const known = ['produce','meat','dairy','bakery','pantry','frozen','drinks','snacks','household','other']
+    state.items.forEach(i => {
+      const l = state.lists.find(x => String(x.id) === String(i.listId))
+      if (l && l.kind === 'grocery') {
+        if (!i.cat || known.indexOf(i.cat) < 0) {
+          const c = guessCatFor(String(i.title || '').toLowerCase())
+          if (c) i.cat = c
+        }
+      }
+    })
+  }catch(e){}
+}
+function mergeItems(a, b, gone){
+  try{
+    const out = new Map()
+    const put = (arr) => {
+      for (const it of (arr || [])) {
+        if (!it) continue
+        const k = String(it.id)
+        const t = gone ? gone[k] : 0
+        if (t && !(Number(it._t) > Number(t))) continue
+        const cur = out.get(k)
+        if (!cur || (Number(it._t) || 0) >= (Number(cur._t) || 0)) out.set(k, it)
+      }
+    }
+    put(a); put(b)
+    return Array.from(out.values())
+  }catch(e){ return (a && a.length) ? a : (b || []) }
+}
+function applyCloudData(data, ts){
+  try{
+    if (!data) return false
+    if (state._demo || !state.items || !state.items.length) {
+      Object.assign(state, data)
+      state._demo = false
+      if (ts) state.cloudTs = ts
+      return true
+    }
+    state.items = mergeItems(state.items, data.items, state.gone || {})
+    state.gone = Object.assign({}, data.gone || {}, state.gone || {})
+    if (data.lists && data.lists.length) {
+      const lists = state.lists.slice()
+      for (const l of data.lists) if (!lists.some(x => String(x.id) === String(l.id))) lists.push(l)
+      state.lists = lists
+    }
+    if (data.settings) state.settings = Object.assign({}, state.settings, data.settings)
+    if (data.filters) state.filters = Object.assign({}, state.filters, data.filters)
+    if (ts) state.cloudTs = ts
+    return true
+  }catch(e){ return false }
+}
+function reloadFromStorage(){
+  try{
+    const raw = localStorage.getItem('tn_html_v3')
+    if (!raw) return
+    const s = JSON.parse(raw)
+    if (!s || !s.items) return
+    state.items = mergeItems(state.items || [], s.items, state.gone || s.gone || {})
+    state.gone = Object.assign({}, s.gone || {}, state.gone || {})
+    if (s.lists && s.lists.length) state.lists = s.lists
+    if (s.settings) state.settings = Object.assign({}, state.settings, s.settings)
+    if (s.filters) state.filters = Object.assign({}, state.filters, s.filters)
+    renderHome(); renderList()
+  }catch(e){}
 }
 
 /* ═══════════ helpers ═══════════ */
@@ -1294,7 +1381,7 @@ function renderListView(list, contentId, clearId) {
     ]
     let html = ''
     for (const aisle of AISLES) {
-      const rows = shown.filter(i => (i.cat || 'other') === aisle.id).sort((a,b) => (a.done?1:0)-(b.done?1:0) || ((Number(a.id)||0)-(Number(b.id)||0)))
+      const rows = shown.filter(i => ((i.cat && AISLES.some(a => a.id === i.cat)) ? i.cat : 'other') === aisle.id).sort((a,b) => (a.done?1:0)-(b.done?1:0) || ((Number(a.id)||0)-(Number(b.id)||0)))
       if (!rows.length) continue
       html += `<div class="aisle"><h3><span>${aisle.icon}</span> ${aisle.label}</h3>`
       html += rows.map(i => wrap(i, `
@@ -1472,7 +1559,7 @@ function playDoneFX(rowEl, circleEl, onEnd){
 function toggleDone(id) {
   const i = findItem(id); if (!i) return
   if (i.habit && !i.done) return rollHabit(i)
-  i.done = !i.done
+  i.done = !i.done; touch(i)
   if (i.done && i.repeat) toast('Done — repeating reminder stopped')
   const finish=function(){
     renderList(); save()
@@ -1537,7 +1624,7 @@ function rollHabit(i) {
 }
 function toggleStar(id) {
   const i = findItem(id); if (!i) return
-  i.star = !i.star
+  i.star = !i.star; touch(i)
   renderList()
 }
 function clearCompleted(listId) {
@@ -1552,9 +1639,9 @@ function clearCompleted(listId) {
 }
 
 /* ══ TEST round: trash/undo · badge · confetti · styles · due sort ══ */
-function toTrash(i){ (state.trash = state.trash || []).push(Object.assign({}, i, { deletedAt: Date.now() })); while (state.trash.length > 60) state.trash.shift() }
+function toTrash(i){ (state.trash = state.trash || []).push(Object.assign({}, i, { deletedAt: Date.now() })); (state.gone = state.gone || {})[String(i.id)] = Date.now(); while (state.trash.length > 60) state.trash.shift() }
 function undoRemove(removed, msg) {
-  toast(msg || 'Removed', 'UNDO', () => { removed.forEach(r => state.items.push(r)); renderList(); save(); toast('Restored ✓') })
+  toast(msg || 'Removed', 'UNDO', () => { removed.forEach(r => { try{ if(state.gone) delete state.gone[String(r.id)] }catch(e){} r._t = Date.now(); state.items.push(r) }); renderList(); save(); toast('Restored ✓') })
 }
 function confetti(){
   try{
@@ -1608,7 +1695,8 @@ function restoreTrash(id){
   const t=(state.trash||[]).find(x=>String(x.id)===String(id))
   if(!t)return
   state.trash=state.trash.filter(x=>String(x.id)!==String(id))
-  const copy=Object.assign({},t); delete copy.deletedAt
+  const copy=Object.assign({},t); delete copy.deletedAt; copy._t=Date.now()
+  try{ if(state.gone) delete state.gone[String(copy.id)] }catch(e){}
   state.items.unshift(copy)
   renderList(); save(); openTrash(); toast('Restored ✓')
 }
@@ -1721,7 +1809,7 @@ function toggleStarFromSheet() {
 function toggleDoneFromSheet() {
   const i = findItem(editingId); if (!i) return
   if (i.habit && !i.done) { closeSheets(); return rollHabit(i) }
-  i.done = !i.done
+  i.done = !i.done; touch(i)
   $('item-done-chip').textContent = i.done ? 'Reopen' : 'Mark done'
   $('item-done-chip').classList.toggle('on', i.done)
   refreshStatusChips()
@@ -1746,6 +1834,7 @@ function saveItemSheet() {
   i.repeat = $('item-repeat-chips').dataset.value || ''
   i.habit = $('item-habit-chip').classList.contains('on')
   i.hyper = $('item-hyper-chip').classList.contains('on')
+  touch(i)
   const gl = state.lists.find(l => l.id === i.listId)
   if (gl && gl.kind === 'grocery') { i.due = ''; i.repeat = ''; i.habit = false }
   const q = $('item-qty').value.trim()
@@ -1855,13 +1944,13 @@ function pickTarget(id, btn) {
   btn.classList.add('on')
 }
 const FOOD = {
-  produce:'apple|apples|avocado|avokado|banana|bananas|tomato|tomatoes|onion|onions|salad|broccoli|lemon|potato|potatoes|carrot|carrots|cucumber|koriander|coriander|berries|grapes|eple|epler|appelsin|appelsiner|sitron|agurk|løk|lauk|rødlok|rødløk|hvitløk|potet|poteter|søtpotet|gulrot|gulrøtter|banan|bananer|tomat|tomater|salat|isbergsalat|hodesalat|jordbær|blåbær|bringebær|kirsebær|druer|sopp|paprika|kål|rosenkål|blomkål|squash|ingefær|mynte|purre|nepe|reddik|grønnsak|grønnsaker|grønsaker|frukt|bær|melon|vannmelon|kiwi|ananas|fersken|pære|pærer|plomme|plommer|erter|asparges|pastinakk|persillerot|stangselleri|selleri|kinakål|jordskokk',
-  meat:'chicken|beef|pork|steak|salmon|tuna|fish|shrimp|bacon|ham|sausage|turkey|lamb|kjøtt|kjøt|kjøttdeig|kylling|kyllingfilet|kyllingbryst|svinekjøtt|svinekoteletter|storfe|storfekjøtt|laks|torsk|sei|ørret|makrell|fisk|reker|reke|scampi|kreps|krabbe|skinke|pølse|pølser|kalkun|lam|lammelår|kjøttpålegg|filet|gris|ribbe|pinnekjøtt|kjøttkaker',
-  dairy:'milk|yogurt|yoghurt|cheese|butter|cream|egg|hvitost|brunost|geitost|fløte|matfløte|rømme|melk|mjølk|smør|kesam|kefir|havremelk|soyamelk|mandelmelk|laktosefri|cottage cheese|ost|gulost|kremost',
-  bakery:'bread|bun|buns|bagel|baguette|tortilla|croissant|cake|waffle|waffles|brød|loff|rundstykke|rundstykker|bagett|knekkebrød|kavring|wienerbrød|bolle|boller|kake|kanelbolle|skillingsbolle|vafler|vaffel|pitabrød|horn|focaccia|pannekake|pannekaker|lompe|lomper|lefse|lefser|tacoskjell|wrap|wraps|croissanter|muffins|donut|smultring',
+  produce:'apple|apples|avocado|avokado|banana|bananas|tomato|tomatoes|onion|onions|salad|broccoli|lemon|potato|potatoes|carrot|carrots|cucumber|koriander|coriander|berries|grapes|eple|epler|appelsin|appelsiner|sitron|agurk|løk|lauk|rødlok|rødløk|hvitløk|potet|poteter|søtpotet|gulrot|gulrøtter|banan|bananer|tomat|tomater|salat|isbergsalat|hodesalat|jordbær|blåbær|bringebær|kirsebær|druer|sopp|paprika|kål|rosenkål|blomkål|squash|ingefær|mynte|purre|nepe|reddik|grønnsak|grønnsaker|grønsaker|frukt|bær|melon|vannmelon|kiwi|ananas|fersken|pære|pærer|plomme|plommer|erter|asparges|pastinakk|persillerot|stangselleri|selleri|kinakål|jordskokk|mais|corn|cherrytomat|cherrytomater|mango|mangoer|mangoes|mangos|pasjonsfrukt|granateple|rødbete|rødbeter|kastanje|kastanjer|gressløk|dill|persille',
+  meat:'chicken|beef|pork|steak|salmon|tuna|fish|shrimp|bacon|ham|sausage|turkey|lamb|kjøtt|kjøt|kjøttdeig|kylling|kyllingfilet|kyllingbryst|svinekjøtt|svinekoteletter|storfe|storfekjøtt|laks|torsk|sei|ørret|makrell|fisk|reker|reke|scampi|kreps|krabbe|hummer|lobster|blekksprut|akkar|squid|østers|oyster|kamskjell|fiskekaker|fiskekake|kjøttboller|spekeskinke|skinke|pølse|pølser|kalkun|lam|lammelår|kjøttpålegg|filet|gris|ribbe|pinnekjøtt|kjøttkaker',
+  dairy:'milk|yogurt|yoghurt|cheese|butter|cream|egg|hvitost|brunost|geitost|fløte|matfløte|rømme|melk|mjølk|smør|kesam|kefir|kvarg|kremfløte|havremelk|soyamelk|mandelmelk|laktosefri|cottage cheese|ost|gulost|kremost',
+  bakery:'bread|bun|buns|bagel|baguette|tortilla|croissant|cake|waffle|waffles|brød|loff|rundstykke|rundstykker|bagett|knekkebrød|kavring|wienerbrød|bolle|boller|kake|kanelbolle|skillingsbolle|vafler|vaffel|pitabrød|pita|kanelbolle|horn|focaccia|pannekake|pannekaker|lompe|lomper|lefse|lefser|tacoskjell|wrap|wraps|croissanter|muffins|donut|smultring',
   frozen:'frozen|ice cream|pizza|fish fingers|frossen|frosne|iskrem|fiskepinner|frossenpizza|wokblanding|wokgrønnsaker|fryst|fryste',
   drinks:'water|soda|juice|beer|wine|coffee|tea|vann|vatn|brus|saft|øl|vin|kaffe|kaffi|te|iste|energidrikk|smoothie|kullsyre|drikke|appelsinjuice|eplejuice|isvann',
-  snacks:'chips|chocolate|candy|cookies|crackers|popcorn|sjokolade|melkesjokolade|kokesjokolade|godteri|karamell|karameller|kjeks|smågodt|twist|potetgull|skumboller|pastiller|tyggegummi|smash|peanøtter|nøtter|mandler|rosiner|ostekake|iskake|seigmenn|nonstop|kex',
+  snacks:'chips|chocolate|candy|cookies|crackers|popcorn|sjokolade|melkesjokolade|kokesjokolade|godteri|karamell|karameller|kjeks|smågodt|twist|potetgull|skumboller|pastiller|tyggegummi|smash|lakris|peanøtter|nøtter|mandler|rosiner|ostekake|iskake|seigmenn|nonstop|kex',
   pantry:'rice|pasta|oil|flour|sugar|coffee|tea|beans|cereal|sauce|salsa|salt|tacokrydder|krydder|olje|solsikkeolje|olivenolje|ris|mel|kveitemjøl|hvetemel|makaroni|spaghetti|nudler|eddik|soyasaus|sennep|majones|ketchup|bønner|linser|kikerter|frokostblanding|havregryn|cornflakes|grøt|honning|syltetøy|jordbærsyltetøy|buljong|gjær|bakepulver|maizena|hermetikk|makrell i tomat|tunfisk|kaviar|suppe|peanøttsmør|sukker|sirup|vaniljesukker|bakekakao',
   household:'soap|detergent|paper|shampoo|trash|sponge|toothpaste|såpe|vaskemiddel|sjampo|balsam|tannkrem|tannbørste|tørkepapir|kjøkkenpapir|tørkeruller|toalettpapir|dopapir|oppvaskmiddel|zalo|poser|søppelsekker|avfallsekker|aluminiumsfolie|plastfolie|matpapir|klut|skyllemiddel|oppvaskmaskintabletter|rengjøring|bleier|våtservietter|stearinlys|lyspære|batterier|fyrstikker|toalettrens|gulvvask',
 }
@@ -1903,7 +1992,12 @@ const GEMOJI = {
   'baguette|bagett':'🥖', 'bagel|bagels':'🥯', 'croissant|croissanter':'🥐',
   'nøtter|nuts':'🥜', 'peanøtter|peanuts':'🥜', 'stearinlys|candle':'🕯️', 'lyspære':'💡',
   'batterier|battery|batteries':'🔋', 'tannbørste|toothbrush':'🪥', 'såpe|soap':'🧼',
-  'toalettpapir|dopapir':'🧻', 'kjøkkenpapir|tørkepapir|tørkeruller':'🧻', 'svamp|sponge':'🧽'
+  'toalettpapir|dopapir':'🧻', 'kjøkkenpapir|tørkepapir|tørkeruller':'🧻', 'svamp|sponge':'🧽',
+  'mango|mangoer|mangos|mangoes':'🥭', 'kastanje|kastanjer|chestnut':'🌰', 'hummer|lobster':'🦞',
+  'blekksprut|octopus':'🐙', 'akkar|squid':'🦑', 'østers|oyster|oysters':'🦪',
+  'kjærlighet på pinne|lollipop':'🍭', 'burger|hamburger':'🍔', 'pommes frites|french fries|fries':'🍟',
+  'smørbrød|sandwich':'🥪', 'suppe|soup':'🍲', 'pai|pie':'🥧', 'pita':'🥙', 'falafel':'🧆',
+  'gryte|lapskaus':'🥘', 'sushi':'🍣', 'curry':'🍛', 'tunfisk':'🐟', 'knekkebrød':'🍞'
 }
 function gemoji(title) {
   try {
@@ -1979,15 +2073,9 @@ function submitComposer() {
   // items always go to the list you're adding from; food in the Grocery list sorts into aisles
   const targetList = state.lists.find(l => l.id === listId)
   if (targetList && targetList.kind === 'grocery') {
-    let bestCat = null, bestLen = 0
-    for (const [c, re] of Object.entries(FOOD)) {
-      for (const w of re.split('|')) {
-        if (!w) continue
-        if (matchFoodWord(lower, w) && w.length > bestLen) { bestCat = c; bestLen = w.length }
-      }
-    }
-    if (bestCat) {
-      cat = bestCat
+    const gcat = guessCatFor(lower)
+    if (gcat) {
+      cat = gcat
       if (qm) { qty = parseFloat(qm[1].replace(',', '.')); unit = qm[2] && qm[2].toLowerCase() !== 'x' ? qm[2].toLowerCase() : '' }
     }
     if (qm && !cat && qm[2]) { qty = parseFloat(qm[1].replace(',', '.')); unit = qm[2].toLowerCase() !== 'x' ? qm[2].toLowerCase() : '' }
@@ -2006,7 +2094,7 @@ function submitComposer() {
     repeat: isGroc ? '' : ($('composer-repeat-chips').dataset.value || (repM ? repM[0].toLowerCase() : '')),
     habit: !isGroc && $('composer-habit-chip').classList.contains('on'),
     hyper: !isGroc && $('composer-hyper-chip').classList.contains('on'),
-    qty: qty, unit: unit, cat,
+    qty: qty, unit: unit, cat, _t: Date.now(),
   }
   state.items.unshift(item)
   dueToPair('', 'composer-time', 'composer-date')
@@ -2267,6 +2355,8 @@ async function pushCloud(){
   if(_syncBusy)return
   _syncBusy=true
   try{
+    if(state._demo){ _syncBusy=false; return }
+    try{ const raw=localStorage.getItem('tn_html_v3'); if(raw){ const s=JSON.parse(raw); if(s&&s.items){ state.items=mergeItems(state.items||[], s.items, state.gone||{}); state.gone=Object.assign({}, s.gone||{}, state.gone||{}) } } }catch(e){}
     fixIds()
     state.cloudTs=new Date().toISOString()
     await sbPost('tn_devices?on_conflict=device_id',{device_id:DEVICE_ID,data:state,updated_at:state.cloudTs})
@@ -2296,7 +2386,7 @@ async function pullCloud(){
     if(!rows.length){
       if(!state.cloudTs){
         const all=await sbGet('tn_devices?order=updated_at.desc&limit=3');
-        if(all.length&&all[0].data){
+        if(all.length&&all[0].data&&((!state.items||!state.items.length)||state._demo)){
           DEVICE_ID=all[0].device_id;
           try{localStorage.setItem('tn_device_id',DEVICE_ID)}catch(e){}
           const keepTs=all[0].updated_at;
@@ -2311,9 +2401,10 @@ async function pullCloud(){
       await pushCloud();return
     }
     const remote=rows[0];
-    if(remote.data&&(!state.cloudTs||remote.updated_at>state.cloudTs)){
+    if(remote.data&&(!state.cloudTs||remote.updated_at>state.cloudTs||!state.items||!state.items.length)){
       const keepTs=remote.updated_at;
-      Object.assign(state,remote.data);
+      applyCloudData(remote.data, keepTs);
+      state._demo=false;
       state.cloudTs=keepTs;
       save();
       renderHome();renderList();
@@ -2452,6 +2543,7 @@ $('theme-light').classList.toggle('on', state.theme === 'light')
 $('theme-dark').classList.toggle('on', state.theme === 'dark')
 $('toggle-push').classList.toggle('on', !!state.settings.pushEnabled)
 try{ const hn=(state.settings.hyperCount||15); document.querySelectorAll('#segs-hyper .seg').forEach((b,idx)=>b.classList.toggle('active', hn===[10,15,30][idx])) }catch(e){}
+try{ recatGrocery() }catch(e){}
 renderHome()
 renderList()
 if ('serviceWorker' in navigator) {
@@ -2472,7 +2564,7 @@ refreshPushStatus();
 document.addEventListener('touchend', askPushPermission, { once:true });
 localDueCheck();
 setInterval(localDueCheck,30000);
-document.addEventListener('visibilitychange',function(){if(!document.hidden){localDueCheck();refreshPushStatus();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
+document.addEventListener('visibilitychange',function(){if(!document.hidden){try{reloadFromStorage()}catch(e){}localDueCheck();refreshPushStatus();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
 pullCloud()
 try {
   const qp = new URLSearchParams(location.search)

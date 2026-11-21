@@ -1215,7 +1215,7 @@ function renderHome() {
           ${open.slice(0,3).map(i => `
             <div class="cmini">
               <span class="box"></span>
-              <p>${i.qty != null ? esc(i.qty + (i.unit ? ' ' + i.unit : '') + ' ') : ''}${esc(i.title)}</p>
+              <p>${gemoji(i.title)}${i.qty != null ? esc(i.qty + (i.unit ? ' ' + i.unit : '') + ' ') : ''}${esc(i.title)}</p>
             </div>`).join('')}
           ${open.length === 0 ? '<p class="allclear">All clear ✓</p>' : ''}
           ${doneN > 0 ? `<p class="ticked">+ ${doneN} ticked item${doneN > 1 ? 's' : ''}</p>` : ''}
@@ -1281,27 +1281,27 @@ function renderListView(list, contentId, clearId) {
   const isGrocery = list.kind === 'grocery'
   if (isGrocery) {
     const AISLES = [
-      { id:'produce', label:'Fresh Produce', icon:'🥬' },
-      { id:'meat', label:'Meat & Seafood', icon:'🥩' },
-      { id:'dairy', label:'Dairy & Eggs', icon:'🧀' },
-      { id:'bakery', label:'Bakery', icon:'🥖' },
-      { id:'pantry', label:'Pantry & Dry Goods', icon:'🥫' },
-      { id:'frozen', label:'Frozen', icon:'🧊' },
-      { id:'drinks', label:'Drinks', icon:'🧃' },
+      { id:'produce', label:'Frukt & grønt', icon:'🥬' },
+      { id:'meat', label:'Kjøtt & fisk', icon:'🥩' },
+      { id:'dairy', label:'Meieri & egg', icon:'🧀' },
+      { id:'bakery', label:'Bakeri', icon:'🥖' },
+      { id:'pantry', label:'Tørrvarer', icon:'🥫' },
+      { id:'frozen', label:'Frossent', icon:'🧊' },
+      { id:'drinks', label:'Drikke', icon:'🧃' },
       { id:'snacks', label:'Snacks', icon:'🍪' },
-      { id:'household', label:'Household', icon:'🧻' },
-      { id:'other', label:'Other', icon:'🛒' },
+      { id:'household', label:'Husholdning', icon:'🧻' },
+      { id:'other', label:'Annet', icon:'🛒' },
     ]
     let html = ''
     for (const aisle of AISLES) {
-      const rows = shown.filter(i => (i.cat || 'other') === aisle.id).sort((a,b) => (a.done?1:0)-(b.done?1:0))
+      const rows = shown.filter(i => (i.cat || 'other') === aisle.id).sort((a,b) => (a.done?1:0)-(b.done?1:0) || ((Number(a.id)||0)-(Number(b.id)||0)))
       if (!rows.length) continue
       html += `<div class="aisle"><h3><span>${aisle.icon}</span> ${aisle.label}</h3>`
       html += rows.map(i => wrap(i, `
         <div class="g-row ${i.done ? 'done' : ''}">
           <button class="check ${i.done ? 'done' : ''}" onclick="event.stopPropagation();toggleDone('${i.id}')">${CHECK}</button>
           <div class="title" onclick="openItem('${i.id}')" role="button" style="flex:1">
-            ${i.qty != null ? esc(i.qty + (i.unit ? ' ' + i.unit : '') + ' ') : ''}${esc(i.title)}
+            ${gemoji(i.title)}${i.qty != null ? esc(i.qty + (i.unit ? ' ' + i.unit : '') + ' ') : ''}${esc(i.title)}
           </div>
         </div>`)).join('')
       html += '</div>'
@@ -1855,15 +1855,66 @@ function pickTarget(id, btn) {
   btn.classList.add('on')
 }
 const FOOD = {
-  produce:'apple|apples|avocado|banana|bananas|tomato|tomatoes|onion|onions|salad|broccoli|lemon|potato|potatoes|carrot|carrots|cucumber|koriander|coriander|berries|grapes|eple|epler|appelsin|appelsiner|sitron|agurk|løk|lauk|potet|poteter|gulrot|gulrøtter|banan|bananer|tomat|tomater|salat|jordbær|blåbær|bringebær|druer|sopp|paprika|kål|squash|ingefær|mynte|purre|nepe|reddik|grønnsaker|grønsaker|frukt|bær|melon|vannmelon|kiwi|ananas|fersken|pære|pærer|plomme|plommer',
-  meat:'chicken|beef|pork|steak|salmon|tuna|fish|shrimp|bacon|ham|sausage|turkey|lamb|kjøtt|kjøttdeig|kylling|svinekjøtt|storfe|laks|torsk|fisk|reker|scampi|skinke|pølse|pølser|kalkun|lammelår|kjøttpålegg|filet',
-  dairy:'milk|yogurt|yoghurt|cheese|butter|cream|egg|hvitost|fløte|rømme|melk|mjølk|smør|kesam|kefir|havremelk|soyamelk|matfløte|ost',
-  bakery:'bread|bun|buns|bagel|baguette|tortilla|croissant|cake|waffle|waffles|brød|loff|rundstykke|rundstykker|bagett|knekkebrød|wienerbrød|bolle|boller|kake|vafler|vaffel|pitabrød|horn|skillingsbolle|focaccia',
-  frozen:'frozen|ice cream|pizza|fish fingers|frossen|iskrem|fiskepinner|frossenpizza|wokblanding|frosne',
-  drinks:'water|soda|juice|beer|wine|coffee|tea|vann|vatn|brus|saft|øl|vin|iste|energidrikk|smoothie|kullsyre|drikke',
-  snacks:'chips|chocolate|candy|cookies|crackers|popcorn|sjokolade|godteri|karamell|karameller|kjeks|smågodt|twist|potetgull|skumboller|pastiller|tyggegummi|smash',
-  pantry:'rice|pasta|oil|flour|sugar|coffee|tea|beans|cereal|sauce|salsa|salt|tacokrydder|olje|ris|mel|makaroni|spaghetti|eddik|soyasaus|sennep|majones|bønner|linser|kikerter|frokostblanding|havregryn|honning|syltetøy|krydder|buljong|gjær|bakepulver|maizena|nøtter|mandler|peanøtter|rosiner|hermetikk|makrell i tomat|tunfisk|cornflakes|grøt',
-  household:'soap|detergent|paper|shampoo|trash|sponge|toothpaste|såpe|vaskemiddel|sjampo|balsam|tannkrem|tannbørste|tørkepapir|tørkeruller|toalettpapir|oppvaskmiddel|zalo|poser|søppelsekker|aluminiumsfolie|plastfolie|klut|skyllemiddel|oppvaskmaskintabletter|rengjøring|bleier|våtservietter|stearinlys',
+  produce:'apple|apples|avocado|avokado|banana|bananas|tomato|tomatoes|onion|onions|salad|broccoli|lemon|potato|potatoes|carrot|carrots|cucumber|koriander|coriander|berries|grapes|eple|epler|appelsin|appelsiner|sitron|agurk|løk|lauk|rødlok|rødløk|hvitløk|potet|poteter|søtpotet|gulrot|gulrøtter|banan|bananer|tomat|tomater|salat|isbergsalat|hodesalat|jordbær|blåbær|bringebær|kirsebær|druer|sopp|paprika|kål|rosenkål|blomkål|squash|ingefær|mynte|purre|nepe|reddik|grønnsak|grønnsaker|grønsaker|frukt|bær|melon|vannmelon|kiwi|ananas|fersken|pære|pærer|plomme|plommer|erter|asparges|pastinakk|persillerot|stangselleri|selleri|kinakål|jordskokk',
+  meat:'chicken|beef|pork|steak|salmon|tuna|fish|shrimp|bacon|ham|sausage|turkey|lamb|kjøtt|kjøt|kjøttdeig|kylling|kyllingfilet|kyllingbryst|svinekjøtt|svinekoteletter|storfe|storfekjøtt|laks|torsk|sei|ørret|makrell|fisk|reker|reke|scampi|kreps|krabbe|skinke|pølse|pølser|kalkun|lam|lammelår|kjøttpålegg|filet|gris|ribbe|pinnekjøtt|kjøttkaker',
+  dairy:'milk|yogurt|yoghurt|cheese|butter|cream|egg|hvitost|brunost|geitost|fløte|matfløte|rømme|melk|mjølk|smør|kesam|kefir|havremelk|soyamelk|mandelmelk|laktosefri|cottage cheese|ost|gulost|kremost',
+  bakery:'bread|bun|buns|bagel|baguette|tortilla|croissant|cake|waffle|waffles|brød|loff|rundstykke|rundstykker|bagett|knekkebrød|kavring|wienerbrød|bolle|boller|kake|kanelbolle|skillingsbolle|vafler|vaffel|pitabrød|horn|focaccia|pannekake|pannekaker|lompe|lomper|lefse|lefser|tacoskjell|wrap|wraps|croissanter|muffins|donut|smultring',
+  frozen:'frozen|ice cream|pizza|fish fingers|frossen|frosne|iskrem|fiskepinner|frossenpizza|wokblanding|wokgrønnsaker|fryst|fryste',
+  drinks:'water|soda|juice|beer|wine|coffee|tea|vann|vatn|brus|saft|øl|vin|kaffe|kaffi|te|iste|energidrikk|smoothie|kullsyre|drikke|appelsinjuice|eplejuice|isvann',
+  snacks:'chips|chocolate|candy|cookies|crackers|popcorn|sjokolade|melkesjokolade|kokesjokolade|godteri|karamell|karameller|kjeks|smågodt|twist|potetgull|skumboller|pastiller|tyggegummi|smash|peanøtter|nøtter|mandler|rosiner|ostekake|iskake|seigmenn|nonstop|kex',
+  pantry:'rice|pasta|oil|flour|sugar|coffee|tea|beans|cereal|sauce|salsa|salt|tacokrydder|krydder|olje|solsikkeolje|olivenolje|ris|mel|kveitemjøl|hvetemel|makaroni|spaghetti|nudler|eddik|soyasaus|sennep|majones|ketchup|bønner|linser|kikerter|frokostblanding|havregryn|cornflakes|grøt|honning|syltetøy|jordbærsyltetøy|buljong|gjær|bakepulver|maizena|hermetikk|makrell i tomat|tunfisk|kaviar|suppe|peanøttsmør|sukker|sirup|vaniljesukker|bakekakao',
+  household:'soap|detergent|paper|shampoo|trash|sponge|toothpaste|såpe|vaskemiddel|sjampo|balsam|tannkrem|tannbørste|tørkepapir|kjøkkenpapir|tørkeruller|toalettpapir|dopapir|oppvaskmiddel|zalo|poser|søppelsekker|avfallsekker|aluminiumsfolie|plastfolie|matpapir|klut|skyllemiddel|oppvaskmaskintabletter|rengjøring|bleier|våtservietter|stearinlys|lyspære|batterier|fyrstikker|toalettrens|gulvvask',
+}
+
+/* ══ Norwegian-aware word matching (\b breaks on æøå) + longest-match-wins ══ */
+const WCHR = '0-9a-zA-ZæøåÆØÅ'
+function matchFoodWord(text, w) {
+  try {
+    const esc = String(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    if (String(w).length <= 2) return new RegExp('(^|[^' + WCHR + '])(' + esc + ')(?![' + WCHR + '])').test(text)
+    if (new RegExp('(^|[^' + WCHR + '])(' + esc + ')(?![' + WCHR + '])').test(text)) return true
+    if (String(w).length >= 3 && new RegExp('(' + esc + ')(?![' + WCHR + '])').test(text)) return true
+    if (String(w).length >= 5 && new RegExp('(^|[^' + WCHR + '])(' + esc + ')').test(text)) return true
+    return false
+  } catch (e) { return false }
+}
+const GEMOJI = {
+  'melk|mjølk|milk':'🥛', 'brød|bread':'🍞', 'loff':'🍞', 'egg|eggs':'🥚',
+  'eple|epler|apple|apples':'🍎', 'banan|bananer|banana|bananas':'🍌',
+  'appelsin|appelsiner|orange|oranges':'🍊', 'tomat|tomater|tomato|tomatoes':'🍅',
+  'agurk|cucumber':'🥒', 'løk|lauk|onion|onions':'🧅', 'rødløk':'🧅', 'hvitløk|garlic':'🧄',
+  'potet|poteter|potato|potatoes':'🥔', 'søtpotet':'🍠', 'gulrot|gulrøtter|carrot|carrots':'🥕',
+  'salat|isbergsalat|salad':'🥬', 'brokkoli|broccoli':'🥦', 'paprika':'🫑', 'chili':'🌶️',
+  'sopp|mushroom|mushrooms':'🍄', 'aubergine|eggplant':'🍆', 'avokado|avocado':'🥑',
+  'mais|corn':'🌽', 'oliven|olives':'🫒', 'ost|cheese':'🧀', 'smør|butter':'🧈',
+  'kaffe|kaffi|coffee':'☕', 'te|tea':'🍵', 'juice':'🧃', 'vann|vatn|water':'💧',
+  'øl|beer':'🍺', 'vin|wine':'🍷', 'brus|soda':'🥤', 'sjokolade|chocolate':'🍫',
+  'kjeks|cookie|cookies':'🍪', 'kake|cake':'🍰', 'ostekake':'🍰', 'iskrem|ice cream':'🍦',
+  'pizza':'🍕', 'frossenpizza':'🍕', 'taco|tacos':'🌮', 'tortilla|lefse|lefser|lompe|lomper':'🫓',
+  'kylling|chicken':'🍗', 'kjøtt|kjøt|meat':'🥩', 'kjøttdeig':'🥩', 'bacon':'🥓',
+  'pølse|pølser|sausage|hotdog':'🌭', 'fisk|fish':'🐟', 'reke|reker|scampi|shrimp':'🦐',
+  'krabbe|crab':'🦀', 'ris|rice':'🍚', 'pasta|spaghetti':'🍝', 'nudler|noodles':'🍜',
+  'pannekake|pannekaker|pancake|pancakes':'🥞', 'vaffel|vafler|waffle|waffles':'🧇',
+  'honning|honey':'🍯', 'jordbær|strawberry|strawberries':'🍓', 'blåbær|blueberry|blueberries':'🫐',
+  'druer|grapes':'🍇', 'vannmelon|watermelon':'🍉', 'melon':'🍈', 'ananas|pineapple':'🍍',
+  'fersken|peach|peaches':'🍑', 'kiwi':'🥝', 'pære|pærer|pear|pears':'🍐', 'sitron|lemon':'🍋',
+  'kokos|coconut':'🥥', 'kirsebær|cherry|cherries':'🍒', 'bringebær':'🍓',
+  'smultring|donut|donuts|doughnut':'🍩', 'muffins':'🧁', 'popcorn':'🍿', 'godteri|candy':'🍬',
+  'baguette|bagett':'🥖', 'bagel|bagels':'🥯', 'croissant|croissanter':'🥐',
+  'nøtter|nuts':'🥜', 'peanøtter|peanuts':'🥜', 'stearinlys|candle':'🕯️', 'lyspære':'💡',
+  'batterier|battery|batteries':'🔋', 'tannbørste|toothbrush':'🪥', 'såpe|soap':'🧼',
+  'toalettpapir|dopapir':'🧻', 'kjøkkenpapir|tørkepapir|tørkeruller':'🧻', 'svamp|sponge':'🧽'
+}
+function gemoji(title) {
+  try {
+    const t = String(title || '').toLowerCase()
+    for (const [ws, e] of Object.entries(GEMOJI)) {
+      for (const w of ws.split('|')) {
+        if (w && new RegExp('(^|[^' + WCHR + '])(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![' + WCHR + '])').test(t)) return e + ' '
+      }
+    }
+  } catch (e) {}
+  return ''
 }
 function rollPastDue(dueStr){
   try{
@@ -1928,12 +1979,16 @@ function submitComposer() {
   // items always go to the list you're adding from; food in the Grocery list sorts into aisles
   const targetList = state.lists.find(l => l.id === listId)
   if (targetList && targetList.kind === 'grocery') {
+    let bestCat = null, bestLen = 0
     for (const [c, re] of Object.entries(FOOD)) {
-      if (new RegExp('\\b(' + re + ')\\b').test(lower)) {
-        cat = c
-        if (qm) { qty = parseFloat(qm[1].replace(',', '.')); unit = qm[2] && qm[2].toLowerCase() !== 'x' ? qm[2].toLowerCase() : '' }
-        break
+      for (const w of re.split('|')) {
+        if (!w) continue
+        if (matchFoodWord(lower, w) && w.length > bestLen) { bestCat = c; bestLen = w.length }
       }
+    }
+    if (bestCat) {
+      cat = bestCat
+      if (qm) { qty = parseFloat(qm[1].replace(',', '.')); unit = qm[2] && qm[2].toLowerCase() !== 'x' ? qm[2].toLowerCase() : '' }
     }
     if (qm && !cat && qm[2]) { qty = parseFloat(qm[1].replace(',', '.')); unit = qm[2].toLowerCase() !== 'x' ? qm[2].toLowerCase() : '' }
   }
@@ -2425,5 +2480,6 @@ try {
   if (deepItem) { const it = findItem(deepItem); if (it) { openList(it.listId); openItem(it.id); try { toast('\uD83D\uDD14 ' + it.title) } catch(e) {} } }
 } catch(e) {}
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5b17abc6ee0a943',t:'MTc5NDc3OTUwOQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5b17abc6ee0a943',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
+
 </html>

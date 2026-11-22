@@ -151,7 +151,7 @@
   .seg { font-size:11.5px; font-weight:600; color:var(--sub); padding:5px 12px; border-radius:99px; transition:.15s; }
   .seg.active { background:var(--surface); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,.12); }
 
-  .rows { padding:2px 10px 8px; overflow-y:auto; flex:1; }
+  .rows { padding:2px 10px calc(88px + env(safe-area-inset-bottom)); overflow-y:auto; flex:1; min-height:0; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
   .row {
     display:flex; align-items:flex-start; gap:13px;
     padding:13px 8px; border-radius:14px; transition:.12s;
@@ -1367,33 +1367,14 @@ function renderListView(list, contentId, clearId) {
 
   const isGrocery = list.kind === 'grocery'
   if (isGrocery) {
-    const AISLES = [
-      { id:'produce', label:'Frukt & grønt', icon:'🥬' },
-      { id:'meat', label:'Kjøtt & fisk', icon:'🥩' },
-      { id:'dairy', label:'Meieri & egg', icon:'🧀' },
-      { id:'bakery', label:'Bakeri', icon:'🥖' },
-      { id:'pantry', label:'Tørrvarer', icon:'🥫' },
-      { id:'frozen', label:'Frossent', icon:'🧊' },
-      { id:'drinks', label:'Drikke', icon:'🧃' },
-      { id:'snacks', label:'Snacks', icon:'🍪' },
-      { id:'household', label:'Husholdning', icon:'🧻' },
-      { id:'other', label:'Annet', icon:'🛒' },
-    ]
-    let html = ''
-    for (const aisle of AISLES) {
-      const rows = shown.filter(i => ((i.cat && AISLES.some(a => a.id === i.cat)) ? i.cat : 'other') === aisle.id).sort((a,b) => (a.done?1:0)-(b.done?1:0) || ((Number(a.id)||0)-(Number(b.id)||0)))
-      if (!rows.length) continue
-      html += `<div class="aisle"><h3><span>${aisle.icon}</span> ${aisle.label}</h3>`
-      html += rows.map(i => wrap(i, `
+    const rows = shown.slice().sort((a,b) => (a.done?1:0)-(b.done?1:0) || ((Number(a.id)||0)-(Number(b.id)||0)))
+    $(contentId).innerHTML = rows.length ? rows.map(i => wrap(i, `
         <div class="g-row ${i.done ? 'done' : ''}">
           <button class="check ${i.done ? 'done' : ''}" onclick="event.stopPropagation();toggleDone('${i.id}')">${CHECK}</button>
           <div class="title" onclick="openItem('${i.id}')" role="button" style="flex:1">
             ${gemoji(i.title)}${i.qty != null ? esc(i.qty + (i.unit ? ' ' + i.unit : '') + ' ') : ''}${esc(i.title)}
           </div>
-        </div>`)).join('')
-      html += '</div>'
-    }
-    $(contentId).innerHTML = html || '<div class="empty">Nothing here yet.</div>'
+        </div>`)).join('') : '<div class="empty">Nothing here yet.</div>'
   } else {
     $(contentId).innerHTML = shown.length ? shown.map(i => wrap(i, `
       <div class="row ${i.done ? 'done' : ''}">
@@ -1993,22 +1974,53 @@ const GEMOJI = {
   'nøtter|nuts':'🥜', 'peanøtter|peanuts':'🥜', 'stearinlys|candle':'🕯️', 'lyspære':'💡',
   'batterier|battery|batteries':'🔋', 'tannbørste|toothbrush':'🪥', 'såpe|soap':'🧼',
   'toalettpapir|dopapir':'🧻', 'kjøkkenpapir|tørkepapir|tørkeruller':'🧻', 'svamp|sponge':'🧽',
-  'mango|mangoer|mangos|mangoes':'🥭', 'kastanje|kastanjer|chestnut':'🌰', 'hummer|lobster':'🦞',
+  'mango|mangoer|mangos|mangoes':'🥭', 'middag|dinner|kveldsmat|middagsmat':'🍽️', 'frokost|breakfast':'🍳', 'lunsj|lunch|matpakke':'🥪', 'dessert':'🍰', 'bursdag|bursdagskake':'🎂', 'grillmat|grilling':'🍖', 'mat|food|middag':'🍽️', 'drikke|drink':'🥤', 'frukt|fruit':'🍎', 'grønnsaker|grønsaker|vegetables':'🥕', 'søtsaker|candy bag':'🍬', 'blomster|flowers':'💐', 'kastanje|kastanjer|chestnut':'🌰', 'hummer|lobster':'🦞',
   'blekksprut|octopus':'🐙', 'akkar|squid':'🦑', 'østers|oyster|oysters':'🦪',
   'kjærlighet på pinne|lollipop':'🍭', 'burger|hamburger':'🍔', 'pommes frites|french fries|fries':'🍟',
   'smørbrød|sandwich':'🥪', 'suppe|soup':'🍲', 'pai|pie':'🥧', 'pita':'🥙', 'falafel':'🧆',
   'gryte|lapskaus':'🥘', 'sushi':'🍣', 'curry':'🍛', 'tunfisk':'🐟', 'knekkebrød':'🍞'
 }
+const CAT_EMOJI = { produce:'🥕', meat:'🥩', dairy:'🧀', bakery:'🥐', pantry:'🥫', frozen:'🧊', drinks:'🧃', snacks:'🍪', household:'🧻' }
 function gemoji(title) {
   try {
-    const t = String(title || '').toLowerCase()
+    const t = String(title || '').toLowerCase().trim()
+    if (!t) return ''
+    const escw = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    let bestW = '', bestE = ''
+    // 1) exact word match
     for (const [ws, e] of Object.entries(GEMOJI)) {
       for (const w of ws.split('|')) {
-        if (w && new RegExp('(^|[^' + WCHR + '])(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![' + WCHR + '])').test(t)) return e + ' '
+        if (w && new RegExp('(^|[^' + WCHR + '])(' + escw(w) + ')(?![' + WCHR + '])').test(t)) return e + ' '
       }
     }
-  } catch (e) {}
-  return ''
+    // 2) inflection stems (epler->eple, krabber->krabbe, kjeksen->kjeks)
+    const words = t.split(/[^0-9a-zæøå]+/).filter(Boolean)
+    for (const x of words) {
+      const cands = [x]
+      if (x.length > 3) { cands.push(x.replace(/(en|et|ene|er|ar|a|s|es)$/, '')); cands.push(x.replace(/r$/, '')) }
+      for (const c of cands) {
+        if (c.length < 2) continue
+        for (const [ws, e] of Object.entries(GEMOJI)) {
+          for (const w of ws.split('|')) {
+            if (w === c && w.length > bestW.length) { bestW = w; bestE = e }
+          }
+        }
+      }
+    }
+    if (bestE) return bestE + ' '
+    // 3) map words hidden inside compounds (blåbærsyltetøy -> blåbær)
+    for (const [ws, e] of Object.entries(GEMOJI)) {
+      for (const w of ws.split('|')) {
+        if (w.length >= 4 && t.indexOf(w) >= 0 && w.length > bestW.length) { bestW = w; bestE = e }
+      }
+    }
+    if (bestE) return bestE + ' '
+    // 4) improvise from the food category
+    const c = guessCatFor(t)
+    if (c && CAT_EMOJI[c]) return CAT_EMOJI[c] + ' '
+    // 5) last resort — it is still groceries
+    return '🛒 '
+  } catch (e) { return '' }
 }
 function rollPastDue(dueStr){
   try{
@@ -2045,6 +2057,19 @@ function submitComposer() {
     const gl = state.lists.find(l => l.id === listId)
     if (!(gl && gl.kind === 'grocery')) {
       if (/[*⭐]/.test(raw)) { smartStar = true; raw = raw.replace(/[*⭐]/g, ' ') }
+      const relM = raw.match(/\b(?:om|in|etter)\s+(\d+)\s*(min|minutt|minutter|mins?|minute|minutes|m|t|timer?|time|h|hr|hrs?|hour|hours|d|dag|dager|day|days)\b/i)
+      if (relM) {
+        const rn = parseInt(relM[1], 10)
+        const ru = relM[2].toLowerCase()
+        const rmult = (ru==='d'||ru==='dag'||ru==='dager'||ru==='day'||ru==='days') ? 1440
+          : (ru==='t'||ru==='time'||ru==='timer'||ru==='h'||ru==='hr'||ru==='hrs'||ru==='hour'||ru==='hours') ? 60 : 1
+        if (rn > 0 && rn < 100000) {
+          const pp = osloParts(Date.now() + rn * rmult * 60000)
+          $('composer-time').value = pad2(pp.H) + ':' + pad2(pp.M)
+          $('composer-date').value = pp.y + '-' + pad2(pp.mo) + '-' + pad2(pp.d)
+          raw = raw.replace(relM[0], ' ')
+        }
+      }
       const tmM = raw.match(/\b(?:at |kl\.?\s*)?(\d{1,2}):(\d{2})\b/i)
       const dayM = raw.match(/\b(today|tomorrow|i dag|idag|i morgen|imorgen|i morgon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag|måndag|tysdag|laurdag|sundag)\b/i)
       let dayOk = true
@@ -2065,7 +2090,7 @@ function submitComposer() {
         if (tmM) raw = raw.replace(tmM[0], ' ')
       }
     }
-    raw = raw.replace(/\s+/g, ' ').trim()
+    raw = raw.replace(/\s+/g, ' ').replace(/^[\s,;]+|[\s,;]+$/g, '').trim()
   }
   const qm = raw.match(/(\d+[.,]?\d*)\s*(kg|g|l|dl|ml|stk|pk|x)?\b/i)
   const lower = raw.toLowerCase()
@@ -2564,7 +2589,7 @@ refreshPushStatus();
 document.addEventListener('touchend', askPushPermission, { once:true });
 localDueCheck();
 setInterval(localDueCheck,30000);
-document.addEventListener('visibilitychange',function(){if(!document.hidden){try{reloadFromStorage()}catch(e){}localDueCheck();refreshPushStatus();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
+document.addEventListener('visibilitychange',function(){if(!document.hidden){try{reloadFromStorage()}catch(e){}localDueCheck();refreshPushStatus();try{ensurePushSub()}catch(e){}scheduleSync()}});window.addEventListener('online',function(){scheduleSync()});window.addEventListener('resize',function(){try{document.querySelectorAll('.rows').forEach(function(r){ if(r.scrollTop>r.scrollHeight-r.clientHeight) r.scrollTop=Math.max(0,r.scrollHeight-r.clientHeight) }) }catch(e){}});setInterval(function(){scheduleSync()},120000);try{ if(state.settings.pushEnabled && typeof Notification!=='undefined' && Notification.permission!=='granted'){ setTimeout(function(){toast('Enable Notifications to get reminders while the app is closed')},5000) } }catch(e){}
 pullCloud()
 try {
   const qp = new URLSearchParams(location.search)
